@@ -6,44 +6,47 @@
 #include<functional>
 #include<chrono>
 #include<unistd.h>
-#include <stdexcept>
+#include<stdexcept>
+#include<time.h>
 
 
 class PeriodicThread 
 {
 public:
 #ifdef VERSION_C
-    explicit PeriodicThread(uint64_t period_usec, std::function<void()> f): 
-        std::thread ([=](){
+    explicit PeriodicThread(uint64_t period_usec, std::function<void()> f): f_(f) {
+        t_ = std::make_unique<std::thread>([=](){
+                timespec t_next;
+                clock_gettime(CLOCK_MONOTONIC, &t_next);
+
                 while(true) {
-                    timespec start, end;
-                    clock_gettime(CLOCK_MONOTONIC_RAW, &start);
-                    f();
-                    clock_gettime(CLOCK_MONOTONIC_RAW, &end);
-                    uint64_t duration = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_nsec - start.tv_nsec) / 1000;
-                    std::printf("Duration = %ld\n", duration);
-                    auto sleep_duration = period_usec - duration;
-                    usleep(sleep_duration);
+                    f_(); // Periodic code
+
+                    t_next.tv_nsec += period_usec;
+                    if (t_next.tv_nsec >= 1000000000) {
+                        t_next.tv_nsec -= 1000000000;
+                        t_next.tv_sec += 1;
+                    }
+                    clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &t_next, NULL);
                 }
-            }) {
-                std::printf("Using C version\n");
-        }
+        });
+        std::printf("Using C version\n");
+    }
 #else
     explicit PeriodicThread(uint64_t period_usec, std::function<void()> f): f_(f) {
         t_ = std::make_unique<std::thread>([=](){
+                using clock = std::chrono::high_resolution_clock;
+                auto t_next = clock::now();
+
                 while(true) {
-                    using clock = std::chrono::high_resolution_clock;
-                    auto start = clock::now();
-                    f_();
-                    auto end = clock::now();
-                    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
-                    std::printf("Duration = %ld\n", duration);
-                    auto sleep_duration = period_usec - std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
-                    std::this_thread::sleep_for(std::chrono::microseconds(sleep_duration));
+                    f_(); // Periodic code
+
+                    t_next += std::chrono::nanoseconds(period_usec);
+                    std::this_thread::sleep_until(t_next);
                 }
-            }); 
-                std::printf("Using C++ version\n");
-        }
+        }); 
+        std::printf("Using C++ version\n");
+    }
 #endif
 
     ~PeriodicThread(){
@@ -53,7 +56,6 @@ public:
 private:
     std::function<void()> f_;
     std::unique_ptr<std::thread> t_;
- 
 };
 
 #endif // __PERIODIC_THREAD_HPP__
