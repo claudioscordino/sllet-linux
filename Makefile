@@ -4,7 +4,7 @@ CPPFLAGS= -Iperiodic -Inet --std=c++17 -Wall -Wextra -pthread
 main: app/main.o net/Proxy.o net/Skeleton.o
 	$(CPP) $(CPPFLAGS) app/main.o net/Proxy.o net/Skeleton.o -o main
 
-app/main.o: app/main.cpp
+app/main.o: app/main.cpp periodic/*
 	$(CPP) $(CPPFLAGS) -c app/main.cpp -o app/main.o
 
 net/Proxy.o: net/Proxy.cpp net/*.hpp

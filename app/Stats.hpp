@@ -17,6 +17,7 @@ struct Stats {
     uint64_t best_case_delay = 1000000000;
     uint64_t sum_delay = 0;
     uint64_t received_messages = 0;
+    uint64_t recv_activations = 0;
     uint64_t sent_messages = 0;
     Msg<int> msg;
 };
