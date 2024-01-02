@@ -50,18 +50,19 @@ public:
         return act_next_;
     }
 
-    void set_rt_prio() {
+    bool set_rt_prio() {
         int policy;
         struct sched_param param;
         if (pthread_getschedparam(t_->native_handle(), &policy, &param) != 0) {
             std::cerr << "ERROR: pthread_getschedparam()" << std::endl;
-            return;
+            return false;
         }
         param.sched_priority = 90;
         if (pthread_setschedparam(t_->native_handle(), SCHED_FIFO, &param) != 0) {
             std::cerr << "ERROR: pthread_setschedparam()" << std::endl;
-            return;
+            return false;
         }
+        return true;
     }
     
 private:

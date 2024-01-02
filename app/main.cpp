@@ -49,7 +49,8 @@ void* sender (void* arg)
 {
     try {
         auto pt = new PeriodicThread(period_usec, do_send, arg);
-        pt->set_rt_prio();
+        if (!pt->set_rt_prio())
+            exit(-1);
     } catch (const std::exception &e) {
         std::cerr << "Exception: " << e.what() << std::endl;
     }
