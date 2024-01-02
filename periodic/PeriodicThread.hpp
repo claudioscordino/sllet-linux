@@ -39,7 +39,7 @@ public:
     } 
 
     inline void stop(){
-        join();
+        stop_ = true;
     }
 
     inline void join(){
