@@ -8,7 +8,6 @@
 #include <unistd.h>
 
 #include <Proxy.hpp>
-#include <Stats.hpp>
 
 #define ERROR(msg) std::cerr << msg << std::endl;
 
