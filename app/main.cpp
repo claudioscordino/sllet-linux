@@ -147,7 +147,7 @@ int main (int argc, char* argv[])
         for (int i=0; i < pairs_nb; ++i) {
             if (pairs[i].worst_case_delay > worst)
                 worst = pairs[i].worst_case_delay;
-            if (pairs[i].worst_case_delay < best)
+            if (pairs[i].best_case_delay < best)
                 best = pairs[i].best_case_delay;
             if (pairs[i].received_messages != 0) {
                 uint64_t avg = (pairs[i].sum_delay)/(pairs[i].received_messages);
