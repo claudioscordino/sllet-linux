@@ -33,6 +33,8 @@ Skeleton<T>::Skeleton(const std::string& address, const uint16_t port)
     }
 }
 
+
+// TODO: do we actually need pass by value here ?
 template <class T>
 bool Skeleton<T>::Send(Msg<T> msg)
 {
