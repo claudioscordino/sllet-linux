@@ -1,3 +1,12 @@
+#define VERSION_C
+#include"rt_utils.hpp"
+
+#include"Msg.hpp"
+#include"Stats.hpp"
+#include"Proxy.hpp"
+#include"PeriodicThread.hpp"
+#include"Skeleton.hpp"
+
 #include<thread>
 #include<chrono>
 #include<iostream>
@@ -7,12 +16,6 @@
 #include<string>
 #include<sched.h>
 #include<sys/time.h>
-
-#include"Msg.hpp"
-#include"Stats.hpp"
-#include"Proxy.hpp"
-#include"PeriodicThread.hpp"
-#include"Skeleton.hpp"
 
 #define timespecsub(tsp, usp, vsp)                          \
     do {                                                    \
@@ -35,6 +38,7 @@ Stats *pairs = nullptr;
 
 void do_send(PeriodicThread *th, void* arg)
 {
+    waste_usec(1000);
     static std::atomic<int> counter = 1;
     Stats *c = (Stats*) arg;
     Skeleton<int> *skel = c->skel;
@@ -84,6 +88,7 @@ void do_receive (PeriodicThread *th, void* arg)
     c->received_messages++;
     if (c->recv_activations == activations)
         th->stop();
+    waste_usec(1000);
 }
 
 // Receiver is event-triggered and measures the delay
@@ -99,6 +104,7 @@ void * receiver (void* arg)
 
 int main (int argc, char* argv[])
 {
+    calibrate_cpu();
     try {
         if (argc != 4) { 
             std::cerr << "Wrong number of arguments" << std::endl;

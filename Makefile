@@ -1,5 +1,5 @@
 CPP=g++
-CPPFLAGS= -Iperiodic -Inet --std=c++17 -Wall -Wextra -pthread
+CPPFLAGS= -Iperiodic -Inet -Iutils --std=c++17 -Wall -Wextra -pthread
 
 main: app/main.o net/Proxy.o net/Skeleton.o
 	$(CPP) $(CPPFLAGS) app/main.o net/Proxy.o net/Skeleton.o -o main
