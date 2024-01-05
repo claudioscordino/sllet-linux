@@ -29,6 +29,11 @@ public:
             delete d;
         }
     }
+    // Returns true if T1 < T2
+    virtual bool Compare (const T* t1, const T* t2)=0;
+//         return ((*t1) < (*t2)); 
+//     }
+
     void Insert(T sort, D* data) {
         Node* node = new Node;
         node->sort = sort;
@@ -44,7 +49,7 @@ public:
         } else {
             // There is at least one node
             Node* n = tail_;
-            while ((n != nullptr) && (n->sort > sort))
+            while ((n != nullptr) && !Compare(&(n->sort), &sort))
                 n = n->prev;
 
             if (n == nullptr) {

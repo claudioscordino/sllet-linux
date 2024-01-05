@@ -4,6 +4,7 @@
 #include <iostream> // FIXME
 #include <chrono>
 #include <time.h>
+#include <timespec_support.h>
 
 template <class T>
 struct Msg {
@@ -12,6 +13,10 @@ public:
     timespec GetTime() {return time_;}
     inline void SetTime() {
         clock_gettime(CLOCK_MONOTONIC, &time_);
+    }
+    inline void SetTime(timespec delta) {
+        clock_gettime(CLOCK_MONOTONIC, &time_);
+        timespecadd(&time_, &delta, &time_);
     }
 
 private:

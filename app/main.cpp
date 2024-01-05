@@ -6,6 +6,7 @@
 #include"Proxy.hpp"
 #include"PeriodicThread.hpp"
 #include"Skeleton.hpp"
+#include"timespec_support.h"
 
 #include<thread>
 #include<chrono>
@@ -17,15 +18,7 @@
 #include<sched.h>
 #include<sys/time.h>
 
-#define timespecsub(tsp, usp, vsp)                          \
-    do {                                                    \
-        (vsp)->tv_sec = (tsp)->tv_sec - (usp)->tv_sec;      \
-        (vsp)->tv_nsec = (tsp)->tv_nsec - (usp)->tv_nsec;   \
-        if ((vsp)->tv_nsec < 0) {                           \
-            (vsp)->tv_sec--;                                \
-            (vsp)->tv_nsec += 1000000000L;                  \
-        }                                                   \
-    } while (0)
+const timespec interconnect_task = {0, 2000000}; // 2ms
 
 static uint16_t pairs_nb = 200;
 static uint64_t period_usec = 1000;
@@ -33,6 +26,8 @@ static uint64_t duration_sec = 10;
 static uint64_t activations = 0;
 
 static const uint16_t port = 1236;
+
+std::atomic<bool> stop = false;
 
 Stats *pairs = nullptr;
 
@@ -47,11 +42,12 @@ inline void processing()
 void* snd_processing(void* arg)
 {
     Stats *c = (Stats*) arg;
-    while (true) {
+    while (!stop) {
         std::unique_lock lock(c->snd_exec_lock);
         c->snd_exec_cond.wait(lock);
         processing();
     }
+    return nullptr;
 }
 #endif
 
@@ -64,13 +60,17 @@ void do_send(PeriodicThread *th, void* arg)
     msg.data = counter++;
 #ifndef SLLET
     processing();
+    msg.SetTime();
     skel->Send(msg);
     (c->sent_messages)++;
 #else
+    // Send previous message (except for first round)
     if (counter > 2) {
+        msg.SetTime(interconnect_task);
         skel->Send(msg);
         (c->sent_messages)++;
     }
+    // Execute some stuff at lower priority
     c->snd_exec_cond.notify_one();
 #endif
 }
@@ -84,6 +84,7 @@ void* sender (void* arg)
         pthread_create(&(c->snd_exec_tid), NULL, snd_processing, arg);
 #endif
         auto pt = new PeriodicThread(period_usec, do_send, arg);
+        // Sender is always high priority
         if (!pt->set_rt_prio())
             exit(-1);
     } catch (const std::exception &e) {
@@ -98,11 +99,12 @@ void* sender (void* arg)
 void* rcv_processing(void* arg)
 {
     Stats *c = (Stats*) arg;
-    while (true) {
+    while (!stop) {
         std::unique_lock lock(c->rcv_exec_lock);
         c->rcv_exec_cond.wait(lock);
         processing();
     }
+    return nullptr;
 }
 #endif
 
@@ -112,13 +114,16 @@ void do_receive (PeriodicThread *th, void* arg)
     Stats *c = (Stats*) arg;
     Proxy<int> * proxy = c->proxy;
     c->recv_activations++;
-    Msg<int> message = proxy->GetNewSamples();
-    Msg<int> *msg = &message;
-    printf("Received %d\n", msg->data);
-    if (msg->data == 0)
+    Msg<int> msg = proxy->GetNewSamples();
+    printf("Received %d\n", msg.data);
+    if (msg.data == 0)
         return; // No messages yet available
     timespec now, orig, elapsed;
-    orig = msg->GetTime();
+    orig = msg.GetTime();
+#ifdef SLLET
+    timespecsub(&orig, &interconnect_task, &orig); 
+#endif
+
     printf("Time was: %ld.%ld nsec\n", orig.tv_sec, orig.tv_nsec);
     clock_gettime(CLOCK_MONOTONIC, &now);
     printf("Time is: %ld.%ld nsec\n", now.tv_sec, now.tv_nsec);
@@ -132,11 +137,14 @@ void do_receive (PeriodicThread *th, void* arg)
         c->best_case_delay = delay;
     c->sum_delay += delay;
     c->received_messages++;
-    if (c->recv_activations == activations)
+    if (c->recv_activations == activations) {
+        stop = true;
         th->stop();
+    }
 #ifndef SLLET
     processing();
 #else
+    // Execute some stuff at lower priority
     c->rcv_exec_cond.notify_one();
 #endif
 }
@@ -151,6 +159,7 @@ void * receiver (void* arg)
 #endif
         auto pt = new PeriodicThread(period_usec, do_receive, arg);
 #ifdef SLLET
+        // In case of SL-LET, the receiving thread is high priority
         if (!pt->set_rt_prio())
             exit(-1);
 #endif

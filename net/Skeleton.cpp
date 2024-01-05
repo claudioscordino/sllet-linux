@@ -38,7 +38,6 @@ Skeleton<T>::Skeleton(const std::string& address, const uint16_t port)
 template <class T>
 bool Skeleton<T>::Send(Msg<T> msg)
 {
-    msg.SetTime();
     size_t remaining = sizeof(msg);
     size_t size = remaining;
     while (remaining > 0) {

@@ -10,6 +10,20 @@
 
 // Proxy:: Subscriber
 
+#ifdef SLLET
+#include <sdll.hpp>
+#include"timespec_support.h"
+
+template <class D>
+class Sdll_timespec: public Sdll<timespec, D> {
+public:
+    virtual bool Compare (const timespec* t1, const timespec* t2) override {
+        return timespeccmp(t1, t2, <);
+    }
+};
+
+#endif
+
 template <class T>
 class Proxy {
 public:
@@ -21,16 +35,37 @@ public:
 
     ~Proxy(){
         close(fd_);
+        // No need to delete elements in queue_ because
+        // they are deleted by Sdl's dtor.
     }
 
+    // Returns the latest "valid" message
     inline Msg<T> GetNewSamples() {
         Msg<T> tmp;
-        while (true) {
-            if (read(fd_, &tmp, sizeof(tmp)) == sizeof(tmp))
+        while (read(fd_, &tmp, sizeof(tmp)) == sizeof(tmp)) {
+#ifdef SLLET
+                // Enqueue all messages
+                Msg<T>* msg = new Msg<T>;
+                *msg = tmp;
+                queue_.Insert(msg->GetTime(), msg);
+#else
                 last_ = tmp;
-            else
-                break;
+#endif
         }
+
+#ifdef SLLET
+        // Dequeue
+        timespec now, first;
+        clock_gettime(CLOCK_MONOTONIC, &now);
+        while (true) {
+            bool ret = queue_.CheckFirst(&first);
+            if ((!ret) || (timespeccmp(&now, &first, <)))
+                break;
+            Msg<T>* m = queue_.Extract();
+            last_ = *m;
+            delete m;
+        }
+#endif
 
         return last_;
     }
@@ -39,6 +74,9 @@ private:
     void Connect (const uint16_t port);
     int fd_;
     Msg<T> last_;
+#ifdef SLLET
+    Sdll_timespec<Msg<T>> queue_;
+#endif
 };
 
 #endif
