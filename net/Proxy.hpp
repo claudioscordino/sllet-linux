@@ -39,21 +39,17 @@ public:
         // they are deleted by Sdl's dtor.
     }
 
+#ifdef SLLET
     // Returns the latest "valid" message
     inline Msg<T> GetNewSamples() {
         Msg<T> tmp;
         while (read(fd_, &tmp, sizeof(tmp)) == sizeof(tmp)) {
-#ifdef SLLET
                 // Enqueue all messages
                 Msg<T>* msg = new Msg<T>;
                 *msg = tmp;
                 queue_.Insert(msg->GetTime(), msg);
-#else
-                last_ = tmp;
-#endif
         }
 
-#ifdef SLLET
         // Dequeue
         timespec now, first;
         clock_gettime(CLOCK_MONOTONIC, &now);
@@ -65,10 +61,20 @@ public:
             last_ = *m;
             delete m;
         }
-#endif
 
         return last_;
     }
+#else
+    // Returns the latest "valid" message
+    inline Msg<T> GetNewSamples() {
+        Msg<T> tmp;
+        while (read(fd_, &tmp, sizeof(tmp)) == sizeof(tmp)) {
+                last_ = tmp;
+        }
+
+        return last_;
+    }
+#endif
 
 private:
     void Connect (const uint16_t port);
