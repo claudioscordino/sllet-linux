@@ -114,34 +114,36 @@ void do_receive (PeriodicThread *th, void* arg)
     Stats *c = (Stats*) arg;
     Proxy<int> * proxy = c->proxy;
     c->recv_activations++;
+    timespec now;
+    clock_gettime(CLOCK_MONOTONIC, &now);
+    printf("Time is: %ld.%ld nsec\n", now.tv_sec, now.tv_nsec);
 #ifdef SLLET
-    timespec t;
-    clock_gettime(CLOCK_MONOTONIC, &t);
-    Msg<int> msg = proxy->GetNewSamples(t);
+    Msg<int> msg = proxy->GetNewSamples(now);
 #else
     Msg<int> msg = proxy->GetNewSamples();
 #endif
     printf("Received %d\n", msg.data);
     if (msg.data == 0)
         return; // No messages yet available
-    timespec now, orig, elapsed;
+    timespec orig, elapsed;
     orig = msg.GetTime();
 #ifdef SLLET
+    printf("Removing delay of interconnect task... \n");
     timespecsub(&orig, &interconnect_task, &orig); 
 #endif
 
     printf("Time was: %ld.%ld nsec\n", orig.tv_sec, orig.tv_nsec);
-    clock_gettime(CLOCK_MONOTONIC, &now);
-    printf("Time is: %ld.%ld nsec\n", now.tv_sec, now.tv_nsec);
-    timespecsub(&now, &orig, &elapsed);
-    printf("Diff is: %ld.%ld nsec\n", elapsed.tv_sec, elapsed.tv_nsec);
-    uint64_t delay = (elapsed.tv_sec*1000000) + (elapsed.tv_nsec/1000);
-    printf("Delay: %lu usec\n", delay);
-    if (c->worst_case_delay < delay) 
-        c->worst_case_delay = delay;
-    if (c->best_case_delay > delay) 
-        c->best_case_delay = delay;
-    c->sum_delay += delay;
+    if (timespeccmp(&orig, &now, <)) {
+        timespecsub(&now, &orig, &elapsed);
+        printf("Diff is: %ld.%ld nsec\n", elapsed.tv_sec, elapsed.tv_nsec);
+        uint64_t delay = (elapsed.tv_sec*1000000) + (elapsed.tv_nsec/1000);
+        printf("Delay: %lu usec\n", delay);
+        if (c->worst_case_delay < delay) 
+            c->worst_case_delay = delay;
+        if (c->best_case_delay > delay) 
+            c->best_case_delay = delay;
+        c->sum_delay += delay;
+    }
     c->received_messages++;
     if (c->recv_activations == activations) {
         stop = true;
