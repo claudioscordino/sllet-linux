@@ -36,22 +36,53 @@ static const uint16_t port = 1236;
 
 Stats *pairs = nullptr;
 
-void do_send(PeriodicThread *th, void* arg)
+inline void processing()
 {
     waste_usec(1000);
+}
+
+///////////////// Sender
+
+#ifdef SLLET
+void* snd_processing(void* arg)
+{
+    Stats *c = (Stats*) arg;
+    while (true) {
+        std::unique_lock lock(c->snd_exec_lock);
+        c->snd_exec_cond.wait(lock);
+        processing();
+    }
+}
+#endif
+
+void do_send(PeriodicThread *th, void* arg)
+{
     static std::atomic<int> counter = 1;
     Stats *c = (Stats*) arg;
     Skeleton<int> *skel = c->skel;
     Msg<int> msg;
     msg.data = counter++;
+#ifndef SLLET
+    processing();
     skel->Send(msg);
     (c->sent_messages)++;
+#else
+    if (counter > 2) {
+        skel->Send(msg);
+        (c->sent_messages)++;
+    }
+    c->snd_exec_cond.notify_one();
+#endif
 }
 
 // Sender is periodic and sends the message
 void* sender (void* arg)
 {
     try {
+#ifdef SLLET
+        Stats *c = (Stats*) arg;
+        pthread_create(&(c->snd_exec_tid), NULL, snd_processing, arg);
+#endif
         auto pt = new PeriodicThread(period_usec, do_send, arg);
         if (!pt->set_rt_prio())
             exit(-1);
@@ -60,6 +91,21 @@ void* sender (void* arg)
     }
     return nullptr;
 }
+
+///////////////// Receiver
+
+#ifdef SLLET
+void* rcv_processing(void* arg)
+{
+    Stats *c = (Stats*) arg;
+    while (true) {
+        std::unique_lock lock(c->rcv_exec_lock);
+        c->rcv_exec_cond.wait(lock);
+        processing();
+    }
+}
+#endif
+
 
 void do_receive (PeriodicThread *th, void* arg)
 {
@@ -88,14 +134,26 @@ void do_receive (PeriodicThread *th, void* arg)
     c->received_messages++;
     if (c->recv_activations == activations)
         th->stop();
-    waste_usec(1000);
+#ifndef SLLET
+    processing();
+#else
+    c->rcv_exec_cond.notify_one();
+#endif
 }
 
 // Receiver is event-triggered and measures the delay
 void * receiver (void* arg)
 {
     try {
+#ifdef SLLET
+        Stats *c = (Stats*) arg;
+        pthread_create(&(c->rcv_exec_tid), NULL, rcv_processing, arg);
+#endif
         auto pt = new PeriodicThread(period_usec, do_receive, arg);
+#ifdef SLLET
+        if (!pt->set_rt_prio())
+            exit(-1);
+#endif
     } catch (const std::exception &e) {
         std::cerr << "Exception: " << e.what() << std::endl;
     }

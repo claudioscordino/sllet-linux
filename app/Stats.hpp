@@ -4,6 +4,8 @@
 #include<iostream>
 #include<chrono>
 #include<time.h>
+#include<condition_variable>
+#include<mutex>
 
 #include"Msg.hpp"
 #include"Skeleton.hpp"
@@ -20,6 +22,15 @@ struct Stats {
     uint64_t recv_activations = 0;
     uint64_t sent_messages = 0;
     Msg<int> msg;
+#ifdef SLLET
+    std::condition_variable rcv_exec_cond;
+    std::mutex rcv_exec_lock;
+    pthread_t rcv_exec_tid;
+
+    std::condition_variable snd_exec_cond;
+    std::mutex snd_exec_lock;
+    pthread_t snd_exec_tid;
+#endif
 };
 
 #endif
