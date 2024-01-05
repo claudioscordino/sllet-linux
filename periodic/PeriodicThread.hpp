@@ -22,6 +22,7 @@ public:
                 clock_gettime(CLOCK_MONOTONIC, &act_next_);
 
                 while(!stop_) {
+                    act_curr_ = act_next_;
                     act_next_.tv_nsec += (period_usec*1000);
                     if (act_next_.tv_nsec >= 1000000000) {
                         act_next_.tv_nsec -= 1000000000;
@@ -46,8 +47,12 @@ public:
         t_->join();
     }
 
-    inline timespec getNextActivation() {
+    inline timespec getNextActivationTime() {
         return act_next_;
+    }
+
+    inline timespec getCurrActivationTime() {
+        return act_curr_;
     }
 
     bool set_rt_prio(uint8_t prio) {
@@ -70,6 +75,7 @@ private:
     std::unique_ptr<std::thread> t_;
     std::atomic<bool> stop_ = false;
     timespec act_next_;
+    timespec act_curr_;
 };
 
 #endif // __PERIODIC_THREAD_HPP__
