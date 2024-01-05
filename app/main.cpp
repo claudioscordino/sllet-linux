@@ -85,7 +85,7 @@ void* sender (void* arg)
 #endif
         auto pt = new PeriodicThread(period_usec, do_send, arg);
         // Sender is always high priority
-        if (!pt->set_rt_prio())
+        if (!pt->set_rt_prio(90))
             exit(-1);
     } catch (const std::exception &e) {
         std::cerr << "Exception: " << e.what() << std::endl;
@@ -160,7 +160,7 @@ void * receiver (void* arg)
         auto pt = new PeriodicThread(period_usec, do_receive, arg);
 #ifdef SLLET
         // In case of SL-LET, the receiving thread is high priority
-        if (!pt->set_rt_prio())
+        if (!pt->set_rt_prio(90))
             exit(-1);
 #endif
     } catch (const std::exception &e) {
