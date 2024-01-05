@@ -114,7 +114,13 @@ void do_receive (PeriodicThread *th, void* arg)
     Stats *c = (Stats*) arg;
     Proxy<int> * proxy = c->proxy;
     c->recv_activations++;
+#ifdef SLLET
+    timespec t;
+    clock_gettime(CLOCK_MONOTONIC, &t);
+    Msg<int> msg = proxy->GetNewSamples(t);
+#else
     Msg<int> msg = proxy->GetNewSamples();
+#endif
     printf("Received %d\n", msg.data);
     if (msg.data == 0)
         return; // No messages yet available

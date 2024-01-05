@@ -41,7 +41,7 @@ public:
 
 #ifdef SLLET
     // Returns the latest "valid" message
-    inline Msg<T> GetNewSamples() {
+    inline Msg<T> GetNewSamples(timespec valid_time) {
         Msg<T> tmp;
         while (read(fd_, &tmp, sizeof(tmp)) == sizeof(tmp)) {
                 // Enqueue all messages
@@ -51,11 +51,10 @@ public:
         }
 
         // Dequeue
-        timespec now, first;
-        clock_gettime(CLOCK_MONOTONIC, &now);
+        timespec first;
         while (true) {
             bool ret = queue_.CheckFirst(&first);
-            if ((!ret) || (timespeccmp(&now, &first, <)))
+            if ((!ret) || (timespeccmp(&valid_time, &first, <)))
                 break;
             Msg<T>* m = queue_.Extract();
             last_ = *m;
