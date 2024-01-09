@@ -10,7 +10,7 @@
 
 // Proxy:: Subscriber
 
-#ifdef SLLET
+#if defined(SLLET) || defined (SLLET_TS)
 #include <sdll.hpp>
 #include"timespec_support.h"
 
@@ -39,7 +39,7 @@ public:
         // they are deleted by Sdl's dtor.
     }
 
-#ifdef SLLET
+#if defined(SLLET) || defined (SLLET_TS)
     // Returns the latest "valid" message
     inline Msg<T> GetNewSamples(timespec valid_time) {
         Msg<T> tmp;
@@ -79,7 +79,7 @@ private:
     void Connect (const uint16_t port);
     int fd_;
     Msg<T> last_;
-#ifdef SLLET
+#if defined(SLLET) || defined (SLLET_TS)
     Sdll_timespec<Msg<T>> queue_;
 #endif
 };

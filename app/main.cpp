@@ -124,6 +124,8 @@ void do_receive (PeriodicThread *th, void* arg)
     printf("Time is: %ld.%ld nsec\n", now.tv_sec, now.tv_nsec);
 #ifdef SLLET
     Msg<int> msg = proxy->GetNewSamples(now);
+#elif SLLET_TS
+    Msg<int> msg = proxy->GetNewSamples(th->getCurrActivationTime());
 #else
     Msg<int> msg = proxy->GetNewSamples();
 #endif
@@ -132,7 +134,7 @@ void do_receive (PeriodicThread *th, void* arg)
         return; // No messages yet available
     timespec orig, elapsed;
     orig = msg.GetTime();
-#ifdef SLLET
+#if defined(SLLET) || defined(SLLET_TS)
     printf("Removing delay of interconnect task... \n");
     timespecsub(&orig, &interconnect_task, &orig); 
 #endif
@@ -255,6 +257,14 @@ int main (int argc, char* argv[])
         }
         std::cout << std::endl << std::endl;
         std::cout << "VVVVVVVVVVVVVVVVVVV" << std::endl;
+#ifdef SLLET
+        std::cout << "SL-LET used: standard" << std::endl;
+#elif SLLET_TS
+        std::cout << "SL-LET used: timestamp" << std::endl;
+#else
+        std::cout << "SL-LET used: none" << std::endl;
+#endif
+        
         std::cout << "Received messages = " << received_messages << std::endl;
         std::cout << "Sent messages = " << sent_messages << std::endl;
         std::cout << "Avg delay = " << sum_avg/pairs_nb << " usec" << std::endl;
@@ -266,6 +276,11 @@ int main (int argc, char* argv[])
             (ru2.ru_utime.tv_usec - ru1.ru_utime.tv_usec) << " usec" << std::endl;
         std::cout << "System usage = " << 
             (ru2.ru_stime.tv_sec - ru1.ru_stime.tv_sec) << "." <<
+            (ru2.ru_stime.tv_usec - ru1.ru_stime.tv_usec) << " usec" << std::endl;
+        std::cout << "Total usage = " << 
+            (ru2.ru_utime.tv_sec - ru1.ru_utime.tv_sec) +
+            (ru2.ru_stime.tv_sec - ru1.ru_stime.tv_sec) << "." <<
+            (ru2.ru_utime.tv_usec - ru1.ru_utime.tv_usec) +
             (ru2.ru_stime.tv_usec - ru1.ru_stime.tv_usec) << " usec" << std::endl;
         std::cout << "AAAAAAAAAAAAAAAAAAA" << std::endl;
         std::cout << std::flush;

@@ -2,7 +2,7 @@ CPP=g++
 ## CPP=clang++
 CPPFLAGS= -Iperiodic -Inet -Isdll -Iutils --std=c++17 -Wall -Wextra -pthread
 
-all: main main-tasks
+all: main main-tasks main-time
 
 main: app/main.o net/Proxy.o net/Skeleton.o
 	$(CPP) $(CPPFLAGS) app/main.o net/Proxy.o net/Skeleton.o -o main
@@ -28,7 +28,18 @@ app/main-tasks.o: app/main.cpp periodic/*
 net/Proxy-tasks.o: net/Proxy.cpp net/*.hpp
 	$(CPP) $(CPPFLAGS) -DSLLET -c net/Proxy.cpp -o net/Proxy-tasks.o
 
+#######################
+main-time: app/main-time.o net/Proxy-time.o net/Skeleton.o
+	$(CPP) $(CPPFLAGS) -DSLLET_TS app/main-time.o net/Proxy-time.o net/Skeleton.o -o main-time
+
+app/main-time.o: app/main.cpp periodic/*
+	$(CPP) $(CPPFLAGS) -DSLLET -c app/main.cpp -o app/main-time.o
+
+net/Proxy-time.o: net/Proxy.cpp net/*.hpp
+	$(CPP) $(CPPFLAGS) -DSLLET -c net/Proxy.cpp -o net/Proxy-time.o
+
+
 .PHONY: clean
 
 clean:
-	rm -f main a.out app/*.o net/*.o main-tasks
+	rm -f main a.out app/*.o net/*.o main-tasks main-time
