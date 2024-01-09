@@ -17,6 +17,7 @@
 #include<string>
 #include<sched.h>
 #include<sys/time.h>
+#include<sys/resource.h>
 
 const timespec interconnect_task = {0, 2000000}; // 2ms
 
@@ -201,6 +202,10 @@ int main (int argc, char* argv[])
         std::cout << "Activations = " << activations << std::endl;
 
         pairs = new Stats[pairs_nb];
+
+        struct rusage ru1, ru2;
+        getrusage(RUSAGE_SELF, &ru1);
+        
         
         for (int i=0; i < pairs_nb; ++i) {
             pairs[i].proxy = new Proxy<int> (port+i);
@@ -219,6 +224,7 @@ int main (int argc, char* argv[])
             sender(&pairs[i]);
         }
         sleep (duration_sec);
+        getrusage(RUSAGE_SELF, &ru2);
 
 
         for (int i=0; i < pairs_nb; ++i) {
@@ -254,6 +260,12 @@ int main (int argc, char* argv[])
         std::cout << "Worst delay = " << worst << " usec" << std::endl;
         std::cout << "Best delay = " << best << " usec" << std::endl;
         std::cout << "Max jitter = " << (worst-best)/2 << " usec" << std::endl;
+        std::cout << "User usage = " << 
+            (ru2.ru_utime.tv_sec - ru1.ru_utime.tv_sec) << "." <<
+            (ru2.ru_utime.tv_usec - ru1.ru_utime.tv_usec) << " usec" << std::endl;
+        std::cout << "System usage = " << 
+            (ru2.ru_stime.tv_sec - ru1.ru_stime.tv_sec) << "." <<
+            (ru2.ru_stime.tv_usec - ru1.ru_stime.tv_usec) << " usec" << std::endl;
         std::cout << "AAAAAAAAAAAAAAAAAAA" << std::endl;
         std::cout << std::flush;
 
