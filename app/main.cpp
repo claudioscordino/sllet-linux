@@ -53,6 +53,7 @@ void* snd_processing(void* arg)
 
 void do_send(PeriodicThread *th, void* arg)
 {
+    (void) th;
     static std::atomic<int> counter = 1;
     Stats *c = (Stats*) arg;
     Skeleton<int> *skel = c->skel;
@@ -165,7 +166,7 @@ void * receiver (void* arg)
         Stats *c = (Stats*) arg;
         pthread_create(&(c->rcv_exec_tid), NULL, rcv_processing, arg);
 #endif
-        auto pt = new PeriodicThread(period_usec, do_receive, arg);
+        [[maybe_unused]] auto pt = new PeriodicThread(period_usec, do_receive, arg);
 #ifdef SLLET
         // In case of SL-LET, the receiving thread is high priority
         if (!pt->set_rt_prio(90))
