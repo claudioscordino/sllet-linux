@@ -84,10 +84,12 @@ void* sender (void* arg)
         Stats *c = (Stats*) arg;
         pthread_create(&(c->snd_exec_tid), NULL, snd_processing, arg);
 #endif
-        auto pt = new PeriodicThread(period_usec, do_send, arg);
-        // Sender is always high priority
+        [[maybe_unused]] auto pt = new PeriodicThread(period_usec, do_send, arg);
+#ifdef SLLET
+        // In case of SL-LET, the sending thread is high priority
         if (!pt->set_rt_prio(90))
             exit(-1);
+#endif
     } catch (const std::exception &e) {
         std::cerr << "Exception: " << e.what() << std::endl;
     }
