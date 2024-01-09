@@ -68,7 +68,8 @@ void do_send(PeriodicThread *th, void* arg)
 #else
     // Send previous message (except for first round)
     if (counter > 2) {
-        msg.SetTime(interconnect_task);
+        msg.SetTime();
+        msg.AddTime(interconnect_task);
         skel->Send(msg);
         (c->sent_messages)++;
     }

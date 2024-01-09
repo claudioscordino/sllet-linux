@@ -14,8 +14,10 @@ public:
     inline void SetTime() {
         clock_gettime(CLOCK_MONOTONIC, &time_);
     }
-    inline void SetTime(timespec delta) {
-        clock_gettime(CLOCK_MONOTONIC, &time_);
+    inline void SetTime(timespec time) {
+        time_ = time;
+    }
+    inline void AddTime(timespec delta) {
         timespecadd(&time_, &delta, &time_);
     }
 
