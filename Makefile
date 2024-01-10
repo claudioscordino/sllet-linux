@@ -33,10 +33,10 @@ main-time: app/main-time.o net/Proxy-time.o net/Skeleton.o
 	$(CPP) $(CPPFLAGS) -DSLLET_TS app/main-time.o net/Proxy-time.o net/Skeleton.o -o main-time
 
 app/main-time.o: app/main.cpp periodic/*
-	$(CPP) $(CPPFLAGS) -DSLLET -c app/main.cpp -o app/main-time.o
+	$(CPP) $(CPPFLAGS) -DSLLET_TS -c app/main.cpp -o app/main-time.o
 
 net/Proxy-time.o: net/Proxy.cpp net/*.hpp
-	$(CPP) $(CPPFLAGS) -DSLLET -c net/Proxy.cpp -o net/Proxy-time.o
+	$(CPP) $(CPPFLAGS) -DSLLET_TS -c net/Proxy.cpp -o net/Proxy-time.o
 
 
 .PHONY: clean
