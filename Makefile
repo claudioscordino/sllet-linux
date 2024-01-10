@@ -1,45 +1,53 @@
 CPP=g++
 ## CPP=clang++
-CPPFLAGS= -Iperiodic -Inet -Isdll -Iutils --std=c++17 -Wall -Wextra -pthread
+CPPFLAGS= -Iperiodic -Inet -Isdll -Iutils --std=c++17 -Wall -Wextra -pthread 
 
-all: main main-tasks main-time
+all: main-std main-time main-tasks
 
-main: app/main.o net/Proxy.o net/Skeleton.o
-	$(CPP) $(CPPFLAGS) app/main.o net/Proxy.o net/Skeleton.o -o main
+main-std: app/main-std.o net/Proxy-std.o net/Skeleton-std.o
+	$(CPP) $(CPPFLAGS) app/main-std.o net/Proxy-std.o net/Skeleton-std.o -o main-std
+
+app/main-std.o: app/main.cpp periodic/*
+	$(CPP) $(CPPFLAGS) -c app/main.cpp -o app/main-std.o
 
 
-app/main.o: app/main.cpp periodic/*
-	$(CPP) $(CPPFLAGS) -c app/main.cpp -o app/main.o
+net/Proxy-std.o: net/Proxy.cpp net/*.hpp
+	$(CPP) $(CPPFLAGS) -c net/Proxy.cpp -o net/Proxy-std.o
 
+net/Skeleton-std.o: net/Skeleton.cpp net/*.hpp
+	$(CPP) $(CPPFLAGS) -c net/Skeleton.cpp -o net/Skeleton-std.o
 
-net/Proxy.o: net/Proxy.cpp net/*.hpp
-	$(CPP) $(CPPFLAGS) -c net/Proxy.cpp -o net/Proxy.o
+###################################################
 
-net/Skeleton.o: net/Skeleton.cpp net/*.hpp
-	$(CPP) $(CPPFLAGS) -c net/Skeleton.cpp -o net/Skeleton.o
-
-#######################
-main-tasks: app/main-tasks.o net/Proxy-tasks.o net/Skeleton.o
-	$(CPP) $(CPPFLAGS) -DSLLET app/main-tasks.o net/Proxy-tasks.o net/Skeleton.o -o main-tasks
-
-app/main-tasks.o: app/main.cpp periodic/*
-	$(CPP) $(CPPFLAGS) -DSLLET -c app/main.cpp -o app/main-tasks.o
-
-net/Proxy-tasks.o: net/Proxy.cpp net/*.hpp
-	$(CPP) $(CPPFLAGS) -DSLLET -c net/Proxy.cpp -o net/Proxy-tasks.o
-
-#######################
-main-time: app/main-time.o net/Proxy-time.o net/Skeleton.o
-	$(CPP) $(CPPFLAGS) -DSLLET_TS app/main-time.o net/Proxy-time.o net/Skeleton.o -o main-time
+main-time: app/main-time.o net/Proxy-time.o net/Skeleton-time.o
+	$(CPP) $(CPPFLAGS) -DSLLET_TS app/main-time.o net/Proxy-time.o net/Skeleton-time.o -o main-time
 
 app/main-time.o: app/main.cpp periodic/*
 	$(CPP) $(CPPFLAGS) -DSLLET_TS -c app/main.cpp -o app/main-time.o
 
+
 net/Proxy-time.o: net/Proxy.cpp net/*.hpp
 	$(CPP) $(CPPFLAGS) -DSLLET_TS -c net/Proxy.cpp -o net/Proxy-time.o
 
+net/Skeleton-time.o: net/Skeleton.cpp net/*.hpp
+	$(CPP) $(CPPFLAGS) -DSLLET_TS -c net/Skeleton.cpp -o net/Skeleton-time.o
+
+###################################################
+
+main-tasks: app/main-tasks.o net/Proxy-tasks.o net/Skeleton-tasks.o
+	$(CPP) $(CPPFLAGS) -DSLLET app/main-tasks.o net/Proxy-tasks.o net/Skeleton-tasks.o -o main-tasks
+
+app/main-tasks.o: app/main.cpp periodic/*
+	$(CPP) $(CPPFLAGS) -DSLLET -c app/main.cpp -o app/main-tasks.o
+
+
+net/Proxy-tasks.o: net/Proxy.cpp net/*.hpp
+	$(CPP) $(CPPFLAGS) -DSLLET -c net/Proxy.cpp -o net/Proxy-tasks.o
+
+net/Skeleton-tasks.o: net/Skeleton.cpp net/*.hpp
+	$(CPP) $(CPPFLAGS) -DSLLET -c net/Skeleton.cpp -o net/Skeleton-tasks.o
 
 .PHONY: clean
 
 clean:
-	rm -f main a.out app/*.o net/*.o main-tasks main-time
+	rm -f app/*.o net/*.o main-std main-time main-tasks
