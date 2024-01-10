@@ -60,12 +60,7 @@ void do_send(PeriodicThread *th, void* arg)
     Skeleton<int> *skel = c->skel;
     Msg<int> msg;
     msg.data = counter++;
-#ifndef SLLET
-    processing();
-    msg.SetTime();
-    skel->Send(msg);
-    (c->sent_messages)++;
-#else
+#ifdef SLLET
     // Send previous message (except for first round)
     if (counter > 2) {
         msg.SetTime();
@@ -75,6 +70,17 @@ void do_send(PeriodicThread *th, void* arg)
     }
     // Execute some stuff at lower priority
     c->snd_exec_cond.notify_one();
+#elif SLLET_TS
+    processing();
+    msg.SetTime(th->getNextActivationTime());
+    msg.AddTime(interconnect_task);
+    skel->Send(msg);
+    (c->sent_messages)++;
+#else
+    processing();
+    msg.SetTime();
+    skel->Send(msg);
+    (c->sent_messages)++;
 #endif
 }
 
