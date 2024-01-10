@@ -10,19 +10,33 @@ template <class T>
 struct Msg {
 public:
     T data;
-    timespec GetTime() {return time_;}
-    inline void SetTime() {
-        clock_gettime(CLOCK_MONOTONIC, &time_);
+#if defined(SLLET) || defined(SLLET_TS)
+    inline timespec GetLetTime() {
+        return let_time_;
     }
-    inline void SetTime(timespec time) {
-        time_ = time;
+    inline void SetLetTime() {
+        clock_gettime(CLOCK_MONOTONIC, &let_time_);
     }
-    inline void AddTime(timespec delta) {
-        timespecadd(&time_, &delta, &time_);
+    inline void SetLetTime(timespec time) {
+        let_time_ = time;
+    }
+    inline void AddLetTime(timespec delta) {
+        timespecadd(&let_time_, &delta, &let_time_);
+    }
+#endif
+
+    inline timespec GetStatsTime() {
+        return stats_time_;
+    }
+    inline void SetStatsTime() {
+        clock_gettime(CLOCK_MONOTONIC, &stats_time_);
     }
 
 private:
-    timespec time_;
+#if defined(SLLET) || defined(SLLET_TS)
+    timespec let_time_;
+#endif
+    timespec stats_time_;
 };
 
 template struct Msg<int>;

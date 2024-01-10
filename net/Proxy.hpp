@@ -47,7 +47,7 @@ public:
                 // Enqueue all messages
                 Msg<T>* msg = new Msg<T>;
                 *msg = tmp;
-                queue_.Insert(msg->GetTime(), msg);
+                queue_.Insert(msg->GetLetTime(), msg);
         }
 
         // Dequeue
