@@ -10,6 +10,7 @@
 #include"Msg.hpp"
 #include"Skeleton.hpp"
 #include"Proxy.hpp"
+#include"PeriodicThread.hpp"
 
 struct Stats {
     Skeleton<int>* skel;
@@ -22,6 +23,8 @@ struct Stats {
     uint64_t recv_activations = 0;
     uint64_t sent_messages = 0;
     Msg<int> msg;
+    PeriodicThread* snd_th;
+    PeriodicThread* rcv_th;
 #ifdef SLLET
     std::condition_variable rcv_exec_cond;
     std::mutex rcv_exec_lock;

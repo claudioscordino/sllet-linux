@@ -40,10 +40,18 @@ public:
     }
 
 #if defined(SLLET) || defined (SLLET_TS)
-    // Returns the latest "valid" message
-    inline Msg<T> GetNewSamples(timespec valid_time) {
+    // Returns the latest "valid" message whose time is >= now
+    inline Msg<T> GetNewSamples(timespec now) {
+        std::cout << "[RCV] Accepting messages with LET time:  " << now.tv_sec 
+            << "." << now.tv_nsec << " nsec" << std::endl;
         Msg<T> tmp;
         while (read(fd_, &tmp, sizeof(tmp)) == sizeof(tmp)) {
+                std::cout << "[RCV] Read message with LET time:  " << tmp.GetLetTime().tv_sec 
+                    << "." << tmp.GetLetTime().tv_nsec << " nsec" << std::endl;
+                std::cout << "[RCV] Read message with STATS time:" << tmp.GetStatsTime().tv_sec 
+                    << "." << tmp.GetStatsTime().tv_nsec << " nsec" << std::endl;
+                std::cout << "[RCV] Enqueuing message..." << std::endl;
+    
                 // Enqueue all messages
                 Msg<T>* msg = new Msg<T>;
                 *msg = tmp;
@@ -51,11 +59,22 @@ public:
         }
 
         // Dequeue
-        timespec first;
+        timespec rcv_time;
+        std::cout << "[RCV] Dequeuing messages..." << std::endl;
         while (true) {
-            bool ret = queue_.CheckFirst(&first);
-            if ((!ret) || (timespeccmp(&valid_time, &first, <)))
+            bool ret = queue_.CheckFirst(&rcv_time);
+            if (!ret) {
+                std::cout << "[RCV] Queue is empty. Returning..." << std::endl;
                 break;
+            } 
+            std::cout << "[RCV] Read message with LET time:" << rcv_time.tv_sec 
+                << "." << rcv_time.tv_nsec << " nsec" << std::endl;
+            if (timespeccmp(&now, &rcv_time, <)) {
+                std::cout << "[RCV] Discarding message" << std::endl;
+                break;
+            } else {
+                std::cout << "[RCV] Accepting message" << std::endl;
+            }
             Msg<T>* m = queue_.Extract();
             last_ = *m;
             delete m;

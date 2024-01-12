@@ -31,6 +31,9 @@ public:
     inline void SetStatsTime() {
         clock_gettime(CLOCK_MONOTONIC, &stats_time_);
     }
+    inline void SetStatsTime(timespec time) {
+        stats_time_ = time;
+    }
 
 private:
 #if defined(SLLET) || defined(SLLET_TS)

@@ -61,13 +61,13 @@ void do_send(PeriodicThread *th, void* arg)
     Skeleton<int> *skel = c->skel;
     Msg<int> msg;
     msg.data = counter++;
+    msg.SetStatsTime(th->getCurrActivationTime());
 #ifdef SLLET
     // Send previous message (except for first round)
     if (counter > 2) {
         msg.SetLetTime();
         msg.AddLetTime(interconnect_task);
 
-        msg.SetStatsTime();
         skel->Send(msg);
         (c->sent_messages)++;
     }
@@ -77,14 +77,21 @@ void do_send(PeriodicThread *th, void* arg)
     processing();
     msg.SetLetTime(th->getNextActivationTime());
     msg.AddLetTime(interconnect_task);
+    std::cout << "[SND] Next activation time is " << 
+        th->getNextActivationTime().tv_sec << "." << 
+        th->getNextActivationTime().tv_nsec << std::endl;
+    std::cout << "[SND] LET time set to " << 
+        msg.GetLetTime().tv_sec << "." << 
+        msg.GetLetTime().tv_nsec << std::endl;
+    std::cout << "[SND] STATS time set to " << 
+        msg.GetStatsTime().tv_sec << "." << 
+        msg.GetStatsTime().tv_nsec << std::endl;
 
-    msg.SetStatsTime();
     skel->Send(msg);
     (c->sent_messages)++;
 #else
     processing();
 
-    msg.SetStatsTime();
     skel->Send(msg);
     (c->sent_messages)++;
 #endif
@@ -94,14 +101,14 @@ void do_send(PeriodicThread *th, void* arg)
 void* sender (void* arg)
 {
     try {
-#ifdef SLLET
         Stats *c = (Stats*) arg;
+#ifdef SLLET
         pthread_create(&(c->snd_exec_tid), NULL, snd_processing, arg);
 #endif
-        [[maybe_unused]] auto pt = new PeriodicThread(period_usec, do_send, arg);
+        c->snd_th = new PeriodicThread(period_usec, do_send, arg);
 #ifdef SLLET
         // In case of SL-LET, the sending thread is high priority
-        if (!pt->set_rt_prio(90))
+        if (!c->snd_th->set_rt_prio(90))
             exit(-1);
 #endif
     } catch (const std::exception &e) {
@@ -133,9 +140,8 @@ void do_receive (PeriodicThread *th, void* arg)
     Stats *c = (Stats*) arg;
     Proxy<int> * proxy = c->proxy;
     c->recv_activations++;
-    timespec now;
-    clock_gettime(CLOCK_MONOTONIC, &now);
-//     printf("Time is: %ld.%ld nsec\n", now.tv_sec, now.tv_nsec);
+    timespec now = th->getCurrActivationTime();
+    std::cout << "Current activation time is " << now.tv_sec << "." << now.tv_nsec << std::endl;
 #ifdef SLLET
     Msg<int> msg = proxy->GetNewSamples(now);
 #elif SLLET_TS
@@ -143,18 +149,19 @@ void do_receive (PeriodicThread *th, void* arg)
 #else
     Msg<int> msg = proxy->GetNewSamples();
 #endif
-//     printf("Received %d\n", msg.data);
+    std::cout << "[RCV] data = " << msg.data << std::endl;
     if (msg.data == 0)
         return; // No messages yet available
     timespec orig, elapsed;
     orig = msg.GetStatsTime();
 
-//     printf("Time was: %ld.%ld nsec\n", orig.tv_sec, orig.tv_nsec);
+    std::cout << "[RCV] Stats time was << " << orig.tv_sec << "." << orig.tv_nsec << std::endl;
+    std::cout << "[RCV] LET time was: " << msg.GetStatsTime().tv_sec << "." << msg.GetStatsTime().tv_nsec << std::endl;
     if (timespeccmp(&orig, &now, <)) {
         timespecsub(&now, &orig, &elapsed);
-//         printf("Diff is: %ld.%ld nsec\n", elapsed.tv_sec, elapsed.tv_nsec);
+        std::cout << "[RCV] Diff is: " << elapsed.tv_sec << "." << elapsed.tv_nsec << std::endl;
         uint64_t delay = (elapsed.tv_sec*1000000) + (elapsed.tv_nsec/1000);
-//         printf("Delay: %lu usec\n", delay);
+        std::cout << "[RCV] Delay: " << delay << " nsec" << std::endl;
         if (c->worst_case_delay < delay) 
             c->worst_case_delay = delay;
         if (c->best_case_delay > delay) 
@@ -176,14 +183,14 @@ void do_receive (PeriodicThread *th, void* arg)
 void * receiver (void* arg)
 {
     try {
-#ifdef SLLET
         Stats *c = (Stats*) arg;
+#ifdef SLLET
         pthread_create(&(c->rcv_exec_tid), NULL, rcv_processing, arg);
 #endif
-        [[maybe_unused]] auto pt = new PeriodicThread(period_usec, do_receive, arg);
+        c->rcv_th = new PeriodicThread(period_usec, do_receive, arg);
 #ifdef SLLET
         // In case of SL-LET, the receiving thread is high priority
-        if (!pt->set_rt_prio(90))
+        if (!c->rcv_th->set_rt_prio(90))
             exit(-1);
 #endif
     } catch (const std::exception &e) {
@@ -235,7 +242,7 @@ int main (int argc, char* argv[])
             sender(&pairs[i]);
         }
         while(!stop)
-            sleep(1);
+            sleep(3);
         getrusage(RUSAGE_SELF, &ru2);
 
 
@@ -249,6 +256,8 @@ int main (int argc, char* argv[])
         uint64_t sum_avg = 0;
         uint64_t received_messages = 0;
         uint64_t sent_messages = 0;
+        uint64_t snd_deadline_miss = 0;
+        uint64_t rcv_deadline_miss = 0;
 
         for (int i=0; i < pairs_nb; ++i) {
             if (pairs[i].worst_case_delay > worst)
@@ -263,6 +272,8 @@ int main (int argc, char* argv[])
             }
             received_messages += pairs[i].received_messages;
             sent_messages += pairs[i].sent_messages;
+            snd_deadline_miss += pairs[i].snd_th->getDeadlineMiss();
+            rcv_deadline_miss += pairs[i].rcv_th->getDeadlineMiss();
         }
         std::cout << std::endl << std::endl;
         std::cout << "VVVVVVVVVVVVVVVVVVV" << std::endl;
@@ -291,6 +302,8 @@ int main (int argc, char* argv[])
             (ru2.ru_stime.tv_sec - ru1.ru_stime.tv_sec) << "." <<
             (ru2.ru_utime.tv_usec - ru1.ru_utime.tv_usec) +
             (ru2.ru_stime.tv_usec - ru1.ru_stime.tv_usec) << " usec" << std::endl;
+        std::cout << "Sender deadline misses = " << snd_deadline_miss << std::endl;
+        std::cout << "Receiver deadline misses = " << rcv_deadline_miss << std::endl;
         std::cout << "AAAAAAAAAAAAAAAAAAA" << std::endl;
         std::cout << std::flush;
         sleep(2);
