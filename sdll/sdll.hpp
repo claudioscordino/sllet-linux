@@ -67,6 +67,7 @@ public:
         }
     }
     bool CheckFirst(T* out) {
+        std::lock_guard<std::mutex> lock(mutex_);
         if (head_ == nullptr)
             return false;
         *out = head_->sort;
