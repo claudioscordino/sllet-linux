@@ -9,6 +9,7 @@
 #include<time.h>
 #include<atomic>
 #include<iostream>
+#include<mutex>
 #include<pthread.h>
 
 
@@ -20,17 +21,28 @@ public:
             void* arg): f_(f) {
         t_ = std::make_unique<std::thread>([=](){
                 clock_gettime(CLOCK_MONOTONIC, &act_next_);
+                timespec period = {0, period_usec*1000};
+                timespec sleep_time;
 
                 while(!stop_) {
+                    timespec now;
+                    clock_gettime(CLOCK_MONOTONIC, &now);
+                    timespecadd(&sleep_time, &period, &sleep_time);
+                    if (timespeccmp(&now, &sleep_time, >))
+                        deadline_miss_++;
+
+                    lock_.lock();
                     act_curr_ = act_next_;
                     act_next_.tv_nsec += (period_usec*1000);
                     if (act_next_.tv_nsec >= 1000000000) {
                         act_next_.tv_nsec -= 1000000000;
                         act_next_.tv_sec += 1;
                     }
+                    sleep_time = act_next_;
+                    lock_.unlock();
 
                     f_(this, arg); // Periodic code
-                    clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &act_next_, NULL);
+                    clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &sleep_time, NULL);
                 }
         });
     }
@@ -48,11 +60,23 @@ public:
     }
 
     inline timespec getNextActivationTime() {
-        return act_next_;
+        timespec ret;
+        lock_.lock();
+        ret = act_next_;
+        lock_.unlock();
+        return ret;
+    }
+
+    inline uint64_t getDeadlineMiss() {
+        return deadline_miss_;
     }
 
     inline timespec getCurrActivationTime() {
-        return act_curr_;
+        timespec ret;
+        lock_.lock();
+        ret = act_curr_;
+        lock_.unlock();
+        return ret;
     }
 
     bool set_rt_prio(uint8_t prio) {
@@ -74,6 +98,9 @@ private:
     std::function<void(PeriodicThread*, void* arg)> f_;
     std::unique_ptr<std::thread> t_;
     std::atomic<bool> stop_ = false;
+    std::atomic<uint64_t> deadline_miss_ = 0;
+
+    std::mutex lock_;
     timespec act_next_;
     timespec act_curr_;
 };
