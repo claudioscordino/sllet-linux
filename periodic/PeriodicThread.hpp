@@ -21,7 +21,7 @@ public:
             void* arg): f_(f) {
         t_ = std::make_unique<std::thread>([=](){
                 clock_gettime(CLOCK_MONOTONIC, &act_next_);
-                timespec period = {0, period_usec*1000};
+                timespec period = {0, ((long int) period_usec)*1000};
                 timespec sleep_time;
 
                 while(!stop_) {
