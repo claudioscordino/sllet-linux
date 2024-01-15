@@ -13,6 +13,7 @@
 #include"PeriodicThread.hpp"
 
 struct Stats {
+    int last_processed_msg = -1;
     Skeleton<int>* skel;
     Proxy<int>* proxy;
     uint64_t worst_case_delay = 0;

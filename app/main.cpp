@@ -22,7 +22,7 @@
 #include<sys/resource.h>
 
 
-const timespec interconnect_task = {0, 2000000}; // 2ms
+const timespec interconnect_task = {0, 10000000}; // 10 ms
 
 static uint16_t pairs_nb = 200;
 static uint64_t period_usec = 1000;
@@ -37,7 +37,7 @@ Stats *pairs = nullptr;
 
 inline void processing()
 {
-    int r = rand()%5000; // 5 ms
+    int r = rand()%(period_usec - 5000); // Leave 5 ms for sending/receiving
     waste_usec(r);
 }
 
@@ -48,7 +48,7 @@ void prepare_snd_message(Stats* c)
     static std::atomic<int> counter = 1;
     c->snd_msg.SetStatsTime(c->snd_th->getCurrActivationTime());
 #ifdef SLLET
-    c->snd_msg.SetLetTime();
+    c->snd_msg.SetLetTime(c->snd_th->getNextActivationTime());
     c->snd_msg.AddLetTime(interconnect_task);
     LOG("[SND] LET time set to " << c->snd_msg.GetLetTime().tv_sec << "." << 
             c->snd_msg.GetLetTime().tv_nsec);
@@ -128,12 +128,15 @@ void* sender (void* arg)
 ///////////////// Receiver
 
 
-void check_stats(Stats *c, timespec now)
+void check_stats(Stats *c)
 {
     Msg<int>* msg = &(c->rcv_msg);
     LOG("[RCV] data = " << msg->data);
     if (msg->data == 0)
         return; // No messages yet available
+    if (c->last_processed_msg == msg->data)
+        return;
+    timespec now = c->rcv_th->getCurrActivationTime();
     timespec orig, elapsed;
     orig = msg->GetStatsTime();
 
@@ -152,6 +155,7 @@ void check_stats(Stats *c, timespec now)
         c->sum_delay += delay;
     }
     c->received_messages++;
+    c->last_processed_msg = msg->data;
     if (c->recv_activations == activations)
         stop = true;
 }
@@ -163,9 +167,6 @@ void* rcv_processing(void* arg)
     while (!stop) {
         std::unique_lock lock(c->rcv_exec_lock);
         c->rcv_exec_cond.wait(lock);
-        timespec now;
-        clock_gettime(CLOCK_MONOTONIC, &now);
-        check_stats(c, now);
         processing();
     }
     return nullptr;
@@ -179,19 +180,20 @@ void do_receive (PeriodicThread *th, void* arg)
     Stats *c = (Stats*) arg;
     Proxy<int> * proxy = c->proxy;
     c->recv_activations++;
-    timespec now = th->getCurrActivationTime();
-    LOG("Current activation time is " << now.tv_sec << "." << now.tv_nsec);
+    LOG("Current activation time is " << c->rcv_th->getCurrActivationTime().tv_sec << "." << 
+            c->rcv_th->getCurrActivationTime().tv_nsec);
 #ifdef SLLET
-    c->rcv_msg = proxy->GetNewSamples(now);
+    c->rcv_msg = proxy->GetNewSamples(c->rcv_th->getCurrActivationTime());
+    check_stats(c);
     // Execute some stuff at lower priority
     c->rcv_exec_cond.notify_one();
 #elif SLLET_TS
-    c->rcv_msg = proxy->GetNewSamples(th->getCurrActivationTime());
-    check_stats(c, now);
+    c->rcv_msg = proxy->GetNewSamples(c->rcv_th->getCurrActivationTime());
+    check_stats(c);
     processing();
 #else
     c->rcv_msg = proxy->GetNewSamples();
-    check_stats(c, now);
+    check_stats(c);
     processing();
 #endif
 }
