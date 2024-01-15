@@ -37,7 +37,7 @@ Stats *pairs = nullptr;
 
 inline void processing()
 {
-    int r = rand()%(period_usec - 5000); // Leave 5 ms for sending/receiving
+    int r = rand()%(period_usec/2); // Leave half period for sending/receiving
     waste_usec(r);
 }
 
