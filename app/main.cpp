@@ -7,17 +7,20 @@
 #include"PeriodicThread.hpp"
 #include"Skeleton.hpp"
 #include"timespec_support.h"
+#include"log.hpp"
 
 #include<thread>
 #include<chrono>
 #include<iostream>
 #include<cstdio>
+#include<cstdlib> // rand
 #include<unistd.h>
 #include<atomic>
 #include<string>
 #include<sched.h>
 #include<sys/time.h>
 #include<sys/resource.h>
+
 
 const timespec interconnect_task = {0, 2000000}; // 2ms
 
@@ -34,10 +37,35 @@ Stats *pairs = nullptr;
 
 inline void processing()
 {
-    waste_usec(1000);
+    int r = rand()%5000; // 5 ms
+    waste_usec(r);
 }
 
 ///////////////// Sender
+
+void prepare_snd_message(Stats* c)
+{
+    static std::atomic<int> counter = 1;
+    c->snd_msg.SetStatsTime(c->snd_th->getCurrActivationTime());
+#ifdef SLLET
+    c->snd_msg.SetLetTime();
+    c->snd_msg.AddLetTime(interconnect_task);
+    LOG("[SND] LET time set to " << c->snd_msg.GetLetTime().tv_sec << "." << 
+            c->snd_msg.GetLetTime().tv_nsec);
+#elif SLLET_TS
+    c->snd_msg.SetLetTime(c->snd_th->getNextActivationTime());
+    c->snd_msg.AddLetTime(interconnect_task);
+    LOG("[SND] LET time set to " << c->snd_msg.GetLetTime().tv_sec << "." << 
+            c->snd_msg.GetLetTime().tv_nsec);
+    LOG("[SND] Next activation time is " << c->snd_th->getNextActivationTime().tv_sec << "." << 
+            c->snd_th->getNextActivationTime().tv_nsec);
+#endif
+    LOG("[SND] STATS time set to " << c->snd_msg.GetStatsTime().tv_sec << "." << 
+            c->snd_msg.GetStatsTime().tv_nsec);
+    LOG("[SND] Sending message with data " << counter);
+    c->snd_msg.data = counter++;
+}
+
 
 #ifdef SLLET
 void* snd_processing(void* arg)
@@ -47,6 +75,7 @@ void* snd_processing(void* arg)
         std::unique_lock lock(c->snd_exec_lock);
         c->snd_exec_cond.wait(lock);
         processing();
+        prepare_snd_message(c);
     }
     return nullptr;
 }
@@ -56,43 +85,22 @@ void do_send(PeriodicThread *th, void* arg)
 {
     if (stop)
         th->stop();
-    static std::atomic<int> counter = 1;
     Stats *c = (Stats*) arg;
     Skeleton<int> *skel = c->skel;
-    Msg<int> msg;
-    msg.data = counter++;
-    msg.SetStatsTime(th->getCurrActivationTime());
 #ifdef SLLET
     // Send previous message (except for first round)
-    if (counter > 2) {
-        msg.SetLetTime();
-        msg.AddLetTime(interconnect_task);
-
-        skel->Send(msg);
+    if (c->snd_msg.data != 0) {
+        skel->Send(c->snd_msg);
         (c->sent_messages)++;
     }
     // Execute some stuff at lower priority
+    // Equivalent to processing()
     c->snd_exec_cond.notify_one();
-#elif SLLET_TS
+#else // SLLET_TS and normal case are identical
     processing();
-    msg.SetLetTime(th->getNextActivationTime());
-    msg.AddLetTime(interconnect_task);
-    std::cout << "[SND] Next activation time is " << 
-        th->getNextActivationTime().tv_sec << "." << 
-        th->getNextActivationTime().tv_nsec << std::endl;
-    std::cout << "[SND] LET time set to " << 
-        msg.GetLetTime().tv_sec << "." << 
-        msg.GetLetTime().tv_nsec << std::endl;
-    std::cout << "[SND] STATS time set to " << 
-        msg.GetStatsTime().tv_sec << "." << 
-        msg.GetStatsTime().tv_nsec << std::endl;
+    prepare_snd_message(c);
 
-    skel->Send(msg);
-    (c->sent_messages)++;
-#else
-    processing();
-
-    skel->Send(msg);
+    skel->Send(c->snd_msg);
     (c->sent_messages)++;
 #endif
 }
@@ -119,49 +127,24 @@ void* sender (void* arg)
 
 ///////////////// Receiver
 
-#ifdef SLLET
-void* rcv_processing(void* arg)
-{
-    Stats *c = (Stats*) arg;
-    while (!stop) {
-        std::unique_lock lock(c->rcv_exec_lock);
-        c->rcv_exec_cond.wait(lock);
-        processing();
-    }
-    return nullptr;
-}
-#endif
 
-
-void do_receive (PeriodicThread *th, void* arg)
+void check_stats(Stats *c, timespec now)
 {
-    if (stop)
-        th->stop();
-    Stats *c = (Stats*) arg;
-    Proxy<int> * proxy = c->proxy;
-    c->recv_activations++;
-    timespec now = th->getCurrActivationTime();
-    std::cout << "Current activation time is " << now.tv_sec << "." << now.tv_nsec << std::endl;
-#ifdef SLLET
-    Msg<int> msg = proxy->GetNewSamples(now);
-#elif SLLET_TS
-    Msg<int> msg = proxy->GetNewSamples(th->getCurrActivationTime());
-#else
-    Msg<int> msg = proxy->GetNewSamples();
-#endif
-    std::cout << "[RCV] data = " << msg.data << std::endl;
-    if (msg.data == 0)
+    Msg<int>* msg = &(c->rcv_msg);
+    LOG("[RCV] data = " << msg->data);
+    if (msg->data == 0)
         return; // No messages yet available
     timespec orig, elapsed;
-    orig = msg.GetStatsTime();
+    orig = msg->GetStatsTime();
 
-    std::cout << "[RCV] Stats time was << " << orig.tv_sec << "." << orig.tv_nsec << std::endl;
-    std::cout << "[RCV] LET time was: " << msg.GetStatsTime().tv_sec << "." << msg.GetStatsTime().tv_nsec << std::endl;
+    LOG("[RCV] Stats time was << " << orig.tv_sec << "." << orig.tv_nsec);
+    LOG("[RCV] LET time was: " << msg->GetStatsTime().tv_sec << "." << 
+            msg->GetStatsTime().tv_nsec);
     if (timespeccmp(&orig, &now, <)) {
         timespecsub(&now, &orig, &elapsed);
-        std::cout << "[RCV] Diff is: " << elapsed.tv_sec << "." << elapsed.tv_nsec << std::endl;
+        LOG("[RCV] Diff is: " << elapsed.tv_sec << "." << elapsed.tv_nsec);
         uint64_t delay = (elapsed.tv_sec*1000000) + (elapsed.tv_nsec/1000);
-        std::cout << "[RCV] Delay: " << delay << " nsec" << std::endl;
+        LOG("[RCV] Delay: " << delay << " nsec");
         if (c->worst_case_delay < delay) 
             c->worst_case_delay = delay;
         if (c->best_case_delay > delay) 
@@ -171,11 +154,45 @@ void do_receive (PeriodicThread *th, void* arg)
     c->received_messages++;
     if (c->recv_activations == activations)
         stop = true;
-#ifndef SLLET
-    processing();
-#else
+}
+
+#ifdef SLLET
+void* rcv_processing(void* arg)
+{
+    Stats *c = (Stats*) arg;
+    while (!stop) {
+        std::unique_lock lock(c->rcv_exec_lock);
+        c->rcv_exec_cond.wait(lock);
+        timespec now;
+        clock_gettime(CLOCK_MONOTONIC, &now);
+        check_stats(c, now);
+        processing();
+    }
+    return nullptr;
+}
+#endif
+
+void do_receive (PeriodicThread *th, void* arg)
+{
+    if (stop)
+        th->stop();
+    Stats *c = (Stats*) arg;
+    Proxy<int> * proxy = c->proxy;
+    c->recv_activations++;
+    timespec now = th->getCurrActivationTime();
+    LOG("Current activation time is " << now.tv_sec << "." << now.tv_nsec);
+#ifdef SLLET
+    c->rcv_msg = proxy->GetNewSamples(now);
     // Execute some stuff at lower priority
     c->rcv_exec_cond.notify_one();
+#elif SLLET_TS
+    c->rcv_msg = proxy->GetNewSamples(th->getCurrActivationTime());
+    check_stats(c, now);
+    processing();
+#else
+    c->rcv_msg = proxy->GetNewSamples();
+    check_stats(c, now);
+    processing();
 #endif
 }
 
@@ -306,7 +323,6 @@ int main (int argc, char* argv[])
         std::cout << "Receiver deadline misses = " << rcv_deadline_miss << std::endl;
         std::cout << "AAAAAAAAAAAAAAAAAAA" << std::endl;
         std::cout << std::flush;
-        sleep(2);
 
         delete pairs;
     } catch (const std::exception &e) {

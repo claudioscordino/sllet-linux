@@ -2,6 +2,8 @@
 #define __PROXY_EVENT_HPP__
 
 #include "Msg.hpp"
+#include "log.hpp"
+
 #include <time.h> // clock_gettime
 #include <string>
 #include <cstdint>
@@ -42,15 +44,14 @@ public:
 #if defined(SLLET) || defined (SLLET_TS)
     // Returns the latest "valid" message whose time is >= now
     inline Msg<T> GetNewSamples(timespec now) {
-        std::cout << "[RCV] Accepting messages with LET time:  " << now.tv_sec 
-            << "." << now.tv_nsec << " nsec" << std::endl;
+        LOG("[RCV] Accepting messages with LET time:  " << now.tv_sec << "." << now.tv_nsec << " nsec");
         Msg<T> tmp;
         while (read(fd_, &tmp, sizeof(tmp)) == sizeof(tmp)) {
-                std::cout << "[RCV] Read message with LET time:  " << tmp.GetLetTime().tv_sec 
-                    << "." << tmp.GetLetTime().tv_nsec << " nsec" << std::endl;
-                std::cout << "[RCV] Read message with STATS time:" << tmp.GetStatsTime().tv_sec 
-                    << "." << tmp.GetStatsTime().tv_nsec << " nsec" << std::endl;
-                std::cout << "[RCV] Enqueuing message..." << std::endl;
+                LOG("[RCV] Read message with LET time:  " << tmp.GetLetTime().tv_sec 
+                    << "." << tmp.GetLetTime().tv_nsec << " nsec");
+                LOG("[RCV] Read message with STATS time:" << tmp.GetStatsTime().tv_sec 
+                    << "." << tmp.GetStatsTime().tv_nsec << " nsec");
+                LOG("[RCV] Enqueuing message...");
     
                 // Enqueue all messages
                 Msg<T>* msg = new Msg<T>;
@@ -60,20 +61,20 @@ public:
 
         // Dequeue
         timespec rcv_time;
-        std::cout << "[RCV] Dequeuing messages..." << std::endl;
+        LOG("[RCV] Dequeuing messages...");
         while (true) {
             bool ret = queue_.CheckFirst(&rcv_time);
             if (!ret) {
-                std::cout << "[RCV] Queue is empty. Returning..." << std::endl;
+                LOG("[RCV] Queue is empty. Returning...");
                 break;
             } 
-            std::cout << "[RCV] Read message with LET time:" << rcv_time.tv_sec 
-                << "." << rcv_time.tv_nsec << " nsec" << std::endl;
+            LOG("[RCV] Read message with LET time:" << rcv_time.tv_sec 
+                << "." << rcv_time.tv_nsec << " nsec");
             if (timespeccmp(&now, &rcv_time, <)) {
-                std::cout << "[RCV] Discarding message" << std::endl;
+                LOG("[RCV] Discarding message");
                 break;
             } else {
-                std::cout << "[RCV] Accepting message" << std::endl;
+                LOG("[RCV] Accepting message");
             }
             Msg<T>* m = queue_.Extract();
             last_ = *m;
@@ -87,6 +88,7 @@ public:
     inline Msg<T> GetNewSamples() {
         Msg<T> tmp;
         while (read(fd_, &tmp, sizeof(tmp)) == sizeof(tmp)) {
+                LOG("[RCV] Message with data " << tmp.data);
                 last_ = tmp;
         }
 
