@@ -39,5 +39,41 @@ struct Stats {
     Msg<int> rcv_msg;
 };
 
+// Once received a message (available in c->rcv_msg), this
+// function updates the statistics.
+// Delay is defined as difference between sender's and
+// receiver's activation times.
+void update_stats(Stats *c)
+{
+    Msg<int>* msg = &(c->rcv_msg);
+    LOG("[RCV] data = " << msg->data);
+    if (msg->data == 0)
+        return; // No messages yet available
+    if (c->last_processed_msg == msg->data)
+        return; // Discard messages already processed
+
+    timespec now = c->rcv_th->getCurrActivationTime();
+    timespec orig, elapsed;
+    orig = msg->GetStatsTime();
+
+    LOG("[RCV] Stats time was: " << msg->GetStatsTime().tv_sec << "." << 
+            msg->GetStatsTime().tv_nsec);
+
+    // Ensure no adjustments have been performed (e.g. by NTP or PTP)
+    if (timespeccmp(&orig, &now, <)) {
+        timespecsub(&now, &orig, &elapsed);
+        LOG("[RCV] Diff is: " << elapsed.tv_sec << "." << elapsed.tv_nsec);
+        uint64_t delay = (elapsed.tv_sec*1000000) + (elapsed.tv_nsec/1000);
+        LOG("[RCV] Delay: " << delay << " nsec");
+        if (c->worst_case_delay < delay) 
+            c->worst_case_delay = delay;
+        if (c->best_case_delay > delay) 
+            c->best_case_delay = delay;
+        c->sum_delay += delay;
+    }
+    c->received_messages++;
+    c->last_processed_msg = msg->data;
+}
+
 #endif
 

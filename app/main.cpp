@@ -57,7 +57,8 @@ void prepare_snd_message(Stats* c)
     c->snd_msg.AddLetTime(interconnect_task);
     LOG("[SND] LET time set to " << c->snd_msg.GetLetTime().tv_sec << "." << 
             c->snd_msg.GetLetTime().tv_nsec);
-    LOG("[SND] Next activation time is " << c->snd_th->getNextActivationTime().tv_sec << "." << 
+    LOG("[SND] Next activation time is " << 
+            c->snd_th->getNextActivationTime().tv_sec << "." << 
             c->snd_th->getNextActivationTime().tv_nsec);
 #endif
     LOG("[SND] STATS time set to " << c->snd_msg.GetStatsTime().tv_sec << "." << 
@@ -127,39 +128,6 @@ void* sender (void* arg)
 
 ///////////////// Receiver
 
-
-void check_stats(Stats *c)
-{
-    Msg<int>* msg = &(c->rcv_msg);
-    LOG("[RCV] data = " << msg->data);
-    if (msg->data == 0)
-        return; // No messages yet available
-    if (c->last_processed_msg == msg->data)
-        return;
-    timespec now = c->rcv_th->getCurrActivationTime();
-    timespec orig, elapsed;
-    orig = msg->GetStatsTime();
-
-    LOG("[RCV] Stats time was << " << orig.tv_sec << "." << orig.tv_nsec);
-    LOG("[RCV] LET time was: " << msg->GetStatsTime().tv_sec << "." << 
-            msg->GetStatsTime().tv_nsec);
-    if (timespeccmp(&orig, &now, <)) {
-        timespecsub(&now, &orig, &elapsed);
-        LOG("[RCV] Diff is: " << elapsed.tv_sec << "." << elapsed.tv_nsec);
-        uint64_t delay = (elapsed.tv_sec*1000000) + (elapsed.tv_nsec/1000);
-        LOG("[RCV] Delay: " << delay << " nsec");
-        if (c->worst_case_delay < delay) 
-            c->worst_case_delay = delay;
-        if (c->best_case_delay > delay) 
-            c->best_case_delay = delay;
-        c->sum_delay += delay;
-    }
-    c->received_messages++;
-    c->last_processed_msg = msg->data;
-    if (c->recv_activations == activations)
-        stop = true;
-}
-
 #ifdef SLLET
 void* rcv_processing(void* arg)
 {
@@ -180,22 +148,25 @@ void do_receive (PeriodicThread *th, void* arg)
     Stats *c = (Stats*) arg;
     Proxy<int> * proxy = c->proxy;
     c->recv_activations++;
-    LOG("Current activation time is " << c->rcv_th->getCurrActivationTime().tv_sec << "." << 
+    LOG("Current activation time is " << 
+            c->rcv_th->getCurrActivationTime().tv_sec << "." << 
             c->rcv_th->getCurrActivationTime().tv_nsec);
 #ifdef SLLET
     c->rcv_msg = proxy->GetNewSamples(c->rcv_th->getCurrActivationTime());
-    check_stats(c);
+    update_stats(c);
     // Execute some stuff at lower priority
     c->rcv_exec_cond.notify_one();
 #elif SLLET_TS
     c->rcv_msg = proxy->GetNewSamples(c->rcv_th->getCurrActivationTime());
-    check_stats(c);
+    update_stats(c);
     processing();
 #else
     c->rcv_msg = proxy->GetNewSamples();
-    check_stats(c);
+    update_stats(c);
     processing();
 #endif
+    if (c->recv_activations == activations)
+        stop = true;
 }
 
 // Receiver is event-triggered and measures the delay
