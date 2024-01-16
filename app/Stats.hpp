@@ -23,7 +23,7 @@ struct Stats {
     uint64_t recv_activations = 0;
     uint64_t sent_messages = 0;
 
-    PeriodicThread* snd_th;
+    PeriodicThread* send_th;
     PeriodicThread* rcv_th;
 
 #ifdef SLLET
@@ -31,11 +31,11 @@ struct Stats {
     std::mutex rcv_exec_lock;
     pthread_t rcv_exec_tid;
 
-    std::condition_variable snd_exec_cond;
-    std::mutex snd_exec_lock;
-    pthread_t snd_exec_tid;
+    std::condition_variable send_exec_cond;
+    std::mutex send_exec_lock;
+    pthread_t send_exec_tid;
 #endif
-    Msg<int> snd_msg;
+    Msg<int> send_msg;
     Msg<int> rcv_msg;
 };
 

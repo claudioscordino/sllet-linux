@@ -43,40 +43,40 @@ inline void processing()
 
 ///////////////// Sender
 
-void prepare_snd_message(Stats* c)
+void prepare_send_message(Stats* c)
 {
     static std::atomic<int> counter = 1;
-    c->snd_msg.SetStatsTime(c->snd_th->getCurrActivationTime());
+    c->send_msg.SetStatsTime(c->send_th->getCurrActivationTime());
 #ifdef SLLET
-    c->snd_msg.SetLetTime(c->snd_th->getNextActivationTime());
-    c->snd_msg.AddLetTime(interconnect_task);
-    LOG("[SND] LET time set to " << c->snd_msg.GetLetTime().tv_sec << "." << 
-            c->snd_msg.GetLetTime().tv_nsec);
+    c->send_msg.SetLetTime(c->send_th->getNextActivationTime());
+    c->send_msg.AddLetTime(interconnect_task);
+    LOG("[SEND] LET time set to " << c->send_msg.GetLetTime().tv_sec << "." << 
+            c->send_msg.GetLetTime().tv_nsec);
 #elif SLLET_TS
-    c->snd_msg.SetLetTime(c->snd_th->getNextActivationTime());
-    c->snd_msg.AddLetTime(interconnect_task);
-    LOG("[SND] LET time set to " << c->snd_msg.GetLetTime().tv_sec << "." << 
-            c->snd_msg.GetLetTime().tv_nsec);
-    LOG("[SND] Next activation time is " << 
-            c->snd_th->getNextActivationTime().tv_sec << "." << 
-            c->snd_th->getNextActivationTime().tv_nsec);
+    c->send_msg.SetLetTime(c->send_th->getNextActivationTime());
+    c->send_msg.AddLetTime(interconnect_task);
+    LOG("[SEND] LET time set to " << c->send_msg.GetLetTime().tv_sec << "." << 
+            c->send_msg.GetLetTime().tv_nsec);
+    LOG("[SEND] Next activation time is " << 
+            c->send_th->getNextActivationTime().tv_sec << "." << 
+            c->send_th->getNextActivationTime().tv_nsec);
 #endif
-    LOG("[SND] STATS time set to " << c->snd_msg.GetStatsTime().tv_sec << "." << 
-            c->snd_msg.GetStatsTime().tv_nsec);
-    LOG("[SND] Sending message with data " << counter);
-    c->snd_msg.data = counter++;
+    LOG("[SEND] STATS time set to " << c->send_msg.GetStatsTime().tv_sec << "." << 
+            c->send_msg.GetStatsTime().tv_nsec);
+    LOG("[SEND] Sending message with data " << counter);
+    c->send_msg.data = counter++;
 }
 
 
 #ifdef SLLET
-void* snd_processing(void* arg)
+void* send_processing(void* arg)
 {
     Stats *c = (Stats*) arg;
     while (!stop) {
-        std::unique_lock lock(c->snd_exec_lock);
-        c->snd_exec_cond.wait(lock);
+        std::unique_lock lock(c->send_exec_lock);
+        c->send_exec_cond.wait(lock);
         processing();
-        prepare_snd_message(c);
+        prepare_send_message(c);
     }
     return nullptr;
 }
@@ -90,18 +90,18 @@ void do_send(PeriodicThread *th, void* arg)
     Skeleton<int> *skel = c->skel;
 #ifdef SLLET
     // Send previous message (except for first round)
-    if (c->snd_msg.data != 0) {
-        skel->Send(c->snd_msg);
+    if (c->send_msg.data != 0) {
+        skel->Send(c->send_msg);
         (c->sent_messages)++;
     }
     // Execute some stuff at lower priority
     // Equivalent to processing()
-    c->snd_exec_cond.notify_one();
+    c->send_exec_cond.notify_one();
 #else // SLLET_TS and normal case are identical
     processing();
-    prepare_snd_message(c);
+    prepare_send_message(c);
 
-    skel->Send(c->snd_msg);
+    skel->Send(c->send_msg);
     (c->sent_messages)++;
 #endif
 }
@@ -112,12 +112,12 @@ void* sender (void* arg)
     try {
         Stats *c = (Stats*) arg;
 #ifdef SLLET
-        pthread_create(&(c->snd_exec_tid), NULL, snd_processing, arg);
+        pthread_create(&(c->send_exec_tid), NULL, send_processing, arg);
 #endif
-        c->snd_th = new PeriodicThread(period_usec, do_send, arg);
+        c->send_th = new PeriodicThread(period_usec, do_send, arg);
 #ifdef SLLET
         // In case of SL-LET, the sending thread is high priority
-        if (!c->snd_th->set_rt_prio(90))
+        if (!c->send_th->set_rt_prio(90))
             exit(-1);
 #endif
     } catch (const std::exception &e) {
@@ -246,7 +246,7 @@ int main (int argc, char* argv[])
         uint64_t sum_avg = 0;
         uint64_t received_messages = 0;
         uint64_t sent_messages = 0;
-        uint64_t snd_deadline_miss = 0;
+        uint64_t send_deadline_miss = 0;
         uint64_t rcv_deadline_miss = 0;
 
         for (int i=0; i < pairs_nb; ++i) {
@@ -262,7 +262,7 @@ int main (int argc, char* argv[])
             }
             received_messages += pairs[i].received_messages;
             sent_messages += pairs[i].sent_messages;
-            snd_deadline_miss += pairs[i].snd_th->getDeadlineMiss();
+            send_deadline_miss += pairs[i].send_th->getDeadlineMiss();
             rcv_deadline_miss += pairs[i].rcv_th->getDeadlineMiss();
         }
         std::cout << std::endl << std::endl;
@@ -292,7 +292,7 @@ int main (int argc, char* argv[])
             (ru2.ru_stime.tv_sec - ru1.ru_stime.tv_sec) << "." <<
             (ru2.ru_utime.tv_usec - ru1.ru_utime.tv_usec) +
             (ru2.ru_stime.tv_usec - ru1.ru_stime.tv_usec) << " usec" << std::endl;
-        std::cout << "Sender deadline misses = " << snd_deadline_miss << std::endl;
+        std::cout << "Sender deadline misses = " << send_deadline_miss << std::endl;
         std::cout << "Receiver deadline misses = " << rcv_deadline_miss << std::endl;
         std::cout << "AAAAAAAAAAAAAAAAAAA" << std::endl;
         std::cout << std::flush;
