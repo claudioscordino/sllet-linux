@@ -22,24 +22,19 @@ public:
         t_ = std::make_unique<std::thread>([=](){
                 clock_gettime(CLOCK_MONOTONIC, &act_next_);
                 timespec period = {0, ((long int) period_usec)*1000};
-                timespec sleep_time;
 
                 while(!stop_) {
-                    timespec now;
-                    clock_gettime(CLOCK_MONOTONIC, &now);
-                    timespecadd(&sleep_time, &period, &sleep_time);
-                    if (timespeccmp(&now, &sleep_time, >))
-                        deadline_miss_++;
 
                     lock_.lock();
                     act_curr_ = act_next_;
-                    act_next_.tv_nsec += (period_usec*1000);
-                    if (act_next_.tv_nsec >= 1000000000) {
-                        act_next_.tv_nsec -= 1000000000;
-                        act_next_.tv_sec += 1;
-                    }
-                    sleep_time = act_next_;
+                    timespecadd(&act_next_, &period, &act_next_);
+                    timespec sleep_time = act_next_; // Used to release the lock
                     lock_.unlock();
+
+                    timespec now;
+                    clock_gettime(CLOCK_MONOTONIC, &now);
+                    if (timespeccmp(&now, &sleep_time, >))
+                        deadline_miss_++;
 
                     f_(this, arg); // Periodic code
                     clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &sleep_time, NULL);
