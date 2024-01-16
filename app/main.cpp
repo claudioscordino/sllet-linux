@@ -22,12 +22,15 @@
 #include<sys/resource.h>
 
 
-const timespec interconnect_task = {0, 10000000}; // 10 ms
+timespec interconnect_task = {0, 20000000};
 
 static uint16_t pairs_nb = 200;
-static uint64_t period_usec = 1000;
+static uint64_t send_period_usec = 10000;
+static uint64_t recv_period_usec = 10000;
+static uint64_t max_exec_time_usec = 5000;
+static uint64_t interconnect_task_usec = 20000;
 static uint64_t duration_sec = 10;
-static uint64_t activations = 0;
+static uint64_t recv_activations = 0;
 
 static const uint16_t port = 1236;
 
@@ -37,7 +40,7 @@ Stats *pairs = nullptr;
 
 inline void processing()
 {
-    int r = rand()%(period_usec/2); // Leave half period for sending/receiving
+    int r = rand()%max_exec_time_usec;
     waste_usec(r);
 }
 
@@ -114,7 +117,7 @@ void* sender (void* arg)
 #ifdef SLLET
         pthread_create(&(c->send_exec_tid), NULL, send_processing, arg);
 #endif
-        c->send_th = new PeriodicThread(period_usec, do_send, arg);
+        c->send_th = new PeriodicThread(send_period_usec, do_send, arg);
 #ifdef SLLET
         // In case of SL-LET, the sending thread is high priority
         if (!c->send_th->set_rt_prio(90))
@@ -129,12 +132,12 @@ void* sender (void* arg)
 ///////////////// Receiver
 
 #ifdef SLLET
-void* rcv_processing(void* arg)
+void* recv_processing(void* arg)
 {
     Stats *c = (Stats*) arg;
     while (!stop) {
-        std::unique_lock lock(c->rcv_exec_lock);
-        c->rcv_exec_cond.wait(lock);
+        std::unique_lock lock(c->recv_exec_lock);
+        c->recv_exec_cond.wait(lock);
         processing();
     }
     return nullptr;
@@ -149,23 +152,23 @@ void do_receive (PeriodicThread *th, void* arg)
     Proxy<int> * proxy = c->proxy;
     c->recv_activations++;
     LOG("Current activation time is " << 
-            c->rcv_th->getCurrActivationTime().tv_sec << "." << 
-            c->rcv_th->getCurrActivationTime().tv_nsec);
+            c->recv_th->getCurrActivationTime().tv_sec << "." << 
+            c->recv_th->getCurrActivationTime().tv_nsec);
 #ifdef SLLET
-    c->rcv_msg = proxy->GetNewSamples(c->rcv_th->getCurrActivationTime());
+    c->recv_msg = proxy->GetNewSamples(c->recv_th->getCurrActivationTime());
     update_stats(c);
     // Execute some stuff at lower priority
-    c->rcv_exec_cond.notify_one();
+    c->recv_exec_cond.notify_one();
 #elif SLLET_TS
-    c->rcv_msg = proxy->GetNewSamples(c->rcv_th->getCurrActivationTime());
+    c->recv_msg = proxy->GetNewSamples(c->recv_th->getCurrActivationTime());
     update_stats(c);
     processing();
 #else
-    c->rcv_msg = proxy->GetNewSamples();
+    c->recv_msg = proxy->GetNewSamples();
     update_stats(c);
     processing();
 #endif
-    if (c->recv_activations == activations)
+    if (c->recv_activations == recv_activations)
         stop = true;
 }
 
@@ -175,12 +178,12 @@ void * receiver (void* arg)
     try {
         Stats *c = (Stats*) arg;
 #ifdef SLLET
-        pthread_create(&(c->rcv_exec_tid), NULL, rcv_processing, arg);
+        pthread_create(&(c->recv_exec_tid), NULL, recv_processing, arg);
 #endif
-        c->rcv_th = new PeriodicThread(period_usec, do_receive, arg);
+        c->recv_th = new PeriodicThread(recv_period_usec, do_receive, arg);
 #ifdef SLLET
         // In case of SL-LET, the receiving thread is high priority
-        if (!c->rcv_th->set_rt_prio(90))
+        if (!c->recv_th->set_rt_prio(90))
             exit(-1);
 #endif
     } catch (const std::exception &e) {
@@ -193,21 +196,36 @@ int main (int argc, char* argv[])
 {
     calibrate_cpu();
     try {
-        if (argc != 4) { 
+        if (argc != 7) { 
             std::cerr << "Wrong number of arguments" << std::endl;
             std::cerr << "Usage:" << std::endl;
-            std::cerr << "\t" << argv[0] << "  pairs  period_usec  duration_sec" << std::endl;
+            std::cerr << "\t" << argv[0] << 
+                "  pairs"  <<
+                "  send_period_usec" <<
+                "  recv_period_usec" <<
+                "  max_exec_time_usec" <<
+                "  interconnect_task_usec" <<
+                "  duration_sec" << 
+                std::endl;
             return -1;
         }
  
         pairs_nb = std::stoi(std::string(argv[1]));
-        period_usec = std::stoi(std::string(argv[2]));
-        duration_sec = std::stoi(std::string(argv[3]));
-        activations = (duration_sec*1000*1000)/period_usec;
+        send_period_usec = std::stoi(std::string(argv[2]));
+        recv_period_usec = std::stoi(std::string(argv[3]));
+        max_exec_time_usec = std::stoi(std::string(argv[4]));
+        interconnect_task_usec = std::stoi(std::string(argv[5]));
+        interconnect_task.tv_sec = 0;
+        interconnect_task.tv_nsec = interconnect_task_usec;
+        duration_sec = std::stoi(std::string(argv[6]));
+        recv_activations = (duration_sec*1000*1000)/recv_period_usec;
         std::cout << "Pairs = " << pairs_nb << std::endl;
-        std::cout << "Period = " << period_usec << std::endl;
+        std::cout << "Sender period = " << send_period_usec << std::endl;
+        std::cout << "Receiver period = " << recv_period_usec << std::endl;
+        std::cout << "Interconnect task = " << interconnect_task_usec << std::endl;
+        std::cout << "Max exec time = " << max_exec_time_usec << std::endl;
         std::cout << "Duration = " << duration_sec << std::endl;
-        std::cout << "Activations = " << activations << std::endl;
+        std::cout << "Receiver activations = " << recv_activations << std::endl;
 
         pairs = new Stats[pairs_nb];
 
@@ -247,7 +265,7 @@ int main (int argc, char* argv[])
         uint64_t received_messages = 0;
         uint64_t sent_messages = 0;
         uint64_t send_deadline_miss = 0;
-        uint64_t rcv_deadline_miss = 0;
+        uint64_t recv_deadline_miss = 0;
 
         for (int i=0; i < pairs_nb; ++i) {
             if (pairs[i].worst_case_delay > worst)
@@ -263,7 +281,7 @@ int main (int argc, char* argv[])
             received_messages += pairs[i].received_messages;
             sent_messages += pairs[i].sent_messages;
             send_deadline_miss += pairs[i].send_th->getDeadlineMiss();
-            rcv_deadline_miss += pairs[i].rcv_th->getDeadlineMiss();
+            recv_deadline_miss += pairs[i].recv_th->getDeadlineMiss();
         }
         std::cout << std::endl << std::endl;
         std::cout << "VVVVVVVVVVVVVVVVVVV" << std::endl;
@@ -293,7 +311,7 @@ int main (int argc, char* argv[])
             (ru2.ru_utime.tv_usec - ru1.ru_utime.tv_usec) +
             (ru2.ru_stime.tv_usec - ru1.ru_stime.tv_usec) << " usec" << std::endl;
         std::cout << "Sender deadline misses = " << send_deadline_miss << std::endl;
-        std::cout << "Receiver deadline misses = " << rcv_deadline_miss << std::endl;
+        std::cout << "Receiver deadline misses = " << recv_deadline_miss << std::endl;
         std::cout << "AAAAAAAAAAAAAAAAAAA" << std::endl;
         std::cout << std::flush;
 
