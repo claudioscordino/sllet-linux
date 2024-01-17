@@ -20,6 +20,7 @@
 #include<sched.h>
 #include<sys/time.h>
 #include<sys/resource.h>
+#include<assert.h>
 
 
 timespec interconnect_task = {0, 20000000};
@@ -49,6 +50,21 @@ inline void processing()
 void prepare_send_message(Stats* c)
 {
     static std::atomic<int> counter = 1;
+    
+#if 1 // Extra checks
+    timespec now, curr, next, check;
+    curr = c->send_th->getCurrActivationTime();
+    next = c->send_th->getNextActivationTime();
+    assert (timespeccmp(&curr, &next, <));
+
+    clock_gettime(CLOCK_MONOTONIC, &now);
+    assert (timespeccmp(&now, &curr, >));
+
+    timespecsub(&next, &curr, &check);
+    assert(check.tv_sec == 0);
+    assert(check.tv_nsec == ((long int) send_period_usec)*1000);
+#endif
+
     c->send_msg.SetStatsTime(c->send_th->getCurrActivationTime());
 #ifdef SLLET
     c->send_msg.SetLetTime(c->send_th->getNextActivationTime());
@@ -146,6 +162,13 @@ void* recv_processing(void* arg)
 
 void do_receive (PeriodicThread *th, void* arg)
 {
+#if 1 // Extra checks
+    timespec now, curr;
+    curr = th->getCurrActivationTime();
+    clock_gettime(CLOCK_MONOTONIC, &now);
+    assert (timespeccmp(&now, &curr, >));
+#endif
+
     if (stop)
         th->stop();
     Stats *c = (Stats*) arg;

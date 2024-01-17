@@ -6,6 +6,7 @@
 #include<time.h>
 #include<condition_variable>
 #include<mutex>
+#include<assert.h>
 
 #include"Msg.hpp"
 #include"Skeleton.hpp"
@@ -52,7 +53,21 @@ void update_stats(Stats *c)
     if (c->last_processed_msg == msg->data)
         return; // Discard messages already processed
 
-    timespec now = c->recv_th->getCurrActivationTime();
+#if 1 // Extra checks
+    timespec now, stat;
+    clock_gettime(CLOCK_MONOTONIC, &now);
+    stat = msg->GetStatsTime();
+    assert (timespeccmp(&now, &stat, >));
+
+#if defined(SLLET) || defined(SLLET_TS)
+    timespec let = msg->GetLetTime();
+    assert (timespeccmp(&now, &let, >));
+#endif
+
+#endif
+
+
+    timespec curr = c->recv_th->getCurrActivationTime();
     timespec orig, elapsed;
     orig = msg->GetStatsTime();
 
@@ -60,8 +75,8 @@ void update_stats(Stats *c)
             msg->GetStatsTime().tv_nsec);
 
     // Ensure no adjustments have been performed (e.g. by NTP or PTP)
-    if (timespeccmp(&orig, &now, <)) {
-        timespecsub(&now, &orig, &elapsed);
+    if (timespeccmp(&orig, &curr, <)) {
+        timespecsub(&curr, &orig, &elapsed);
         LOG("[RECV] Diff is: " << elapsed.tv_sec << "." << elapsed.tv_nsec);
         uint64_t delay = (elapsed.tv_sec*1000000) + (elapsed.tv_nsec/1000);
         LOG("[RECV] Delay: " << delay << " nsec");
