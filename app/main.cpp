@@ -72,8 +72,6 @@ void prepare_send_message(Stats* c)
 #endif
 
 #ifdef SLLET
-    c->send_msg.SetLetTime(c->send_th->getNextActivationTime());
-    c->send_msg.AddLetTime(interconnect_task);
     LOG("[SEND] LET time set to " << c->send_msg.GetLetTime().tv_sec << "." << 
             c->send_msg.GetLetTime().tv_nsec);
 #elif SLLET_TS
@@ -114,6 +112,10 @@ void do_send(PeriodicThread *th, void* arg)
 #ifdef SLLET
     // Send previous message (except for first round)
     if (c->send_msg.data != 0) {
+        timespec now;
+        clock_gettime(CLOCK_MONOTONIC, &now);
+        c->send_msg.SetLetTime(now);
+        c->send_msg.AddLetTime(interconnect_task);
         skel->Send(c->send_msg);
         (c->sent_messages)++;
     }
@@ -166,8 +168,9 @@ void* recv_processing(void* arg)
 
 void do_receive (PeriodicThread *th, void* arg)
 {
+    timespec now;
 #if 1 // Extra checks
-    timespec now, curr;
+    timespec curr;
     curr = th->getCurrActivationTime();
     clock_gettime(CLOCK_MONOTONIC, &now);
     assert (timespeccmp(&now, &curr, >));
@@ -182,7 +185,8 @@ void do_receive (PeriodicThread *th, void* arg)
             c->recv_th->getCurrActivationTime().tv_sec << "." << 
             c->recv_th->getCurrActivationTime().tv_nsec);
 #ifdef SLLET
-    c->recv_msg = proxy->GetNewSamples(c->recv_th->getCurrActivationTime());
+    clock_gettime(CLOCK_MONOTONIC, &now);
+    c->recv_msg = proxy->GetNewSamples(now);
     update_stats(c);
     // Execute some stuff at lower priority
     c->recv_exec_cond.notify_one();
