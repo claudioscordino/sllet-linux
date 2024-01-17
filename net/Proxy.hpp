@@ -42,9 +42,10 @@ public:
     }
 
 #if defined(SLLET) || defined (SLLET_TS)
-    // Returns the latest "valid" message whose time is >= now
-    inline Msg<T> GetNewSamples(timespec now) {
-        LOG("[RCV] Accepting messages with LET time:  " << now.tv_sec << "." << now.tv_nsec << " nsec");
+    // Returns the latest message whose Let time is < currAct
+    inline Msg<T> GetNewSamples(timespec currAct) {
+        LOG("[RCV] Accepting messages with LET time < " << currAct.tv_sec << "." << 
+                currAct.tv_nsec << " nsec");
         Msg<T> tmp;
         while (read(fd_, &tmp, sizeof(tmp)) == sizeof(tmp)) {
                 LOG("[RCV] Read message with LET time:  " << tmp.GetLetTime().tv_sec 
@@ -60,17 +61,17 @@ public:
         }
 
         // Dequeue
-        timespec rcv_time;
+        timespec let_time;
         LOG("[RCV] Dequeuing messages...");
         while (true) {
-            bool ret = queue_.CheckFirst(&rcv_time);
+            bool ret = queue_.CheckFirst(&let_time);
             if (!ret) {
                 LOG("[RCV] Queue is empty. Returning...");
                 break;
             } 
-            LOG("[RCV] Read message with LET time:" << rcv_time.tv_sec 
-                << "." << rcv_time.tv_nsec << " nsec");
-            if (timespeccmp(&now, &rcv_time, <)) {
+            LOG("[RCV] Read message with LET time:" << let_time.tv_sec 
+                << "." << let_time.tv_nsec << " nsec");
+            if (timespeccmp(&let_time, &currAct, >)) {
                 LOG("[RCV] Discarding message");
                 break;
             } else {

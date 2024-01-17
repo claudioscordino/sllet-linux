@@ -239,7 +239,7 @@ int main (int argc, char* argv[])
         max_exec_time_usec = std::stoi(std::string(argv[4]));
         interconnect_task_usec = std::stoi(std::string(argv[5]));
         interconnect_task.tv_sec = 0;
-        interconnect_task.tv_nsec = interconnect_task_usec;
+        interconnect_task.tv_nsec = interconnect_task_usec*1000;
         duration_sec = std::stoi(std::string(argv[6]));
         recv_activations = (duration_sec*1000*1000)/recv_period_usec;
         std::cout << "Pairs = " << pairs_nb << std::endl;
