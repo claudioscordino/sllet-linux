@@ -13,8 +13,9 @@
 // Proxy:: Subscriber
 
 #if defined(SLLET) || defined (SLLET_TS)
+#include "timespec_support.h"
+
 #include <sdll.hpp>
-#include"timespec_support.h"
 
 template <class D>
 class Sdll_timespec: public Sdll<timespec, D> {

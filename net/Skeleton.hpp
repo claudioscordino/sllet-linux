@@ -1,11 +1,12 @@
 #ifndef __SKELETON_EVENT_HPP__
 #define __SKELETON_EVENT_HPP__
 
-#include"Msg.hpp"
+#include "Msg.hpp"
 
 #include <time.h> // clock_gettime
-#include<cstdint>
-#include<unistd.h>
+#include <cstdint>
+#include <unistd.h>
+#include <iostream>
 
 // Skeleton: Publisher
 

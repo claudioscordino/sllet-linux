@@ -1,8 +1,8 @@
 #ifndef __RT_UTILS_HPP__
 #define __RT_UTILS_HPP__
 
-#include<cstdio>
-#include<cstdint>
+#include <cstdio>
+#include <cstdint>
 
 const uint64_t max = 10000000;
 static uint64_t cycles_per_usec = 0;
@@ -20,7 +20,7 @@ inline void waste_usec(uint64_t usec)
 
 
 #ifdef VERSION_C
-#include<time.h>
+#include <time.h>
 void calibrate_cpu()
 {
     timespec start, end;
@@ -33,9 +33,11 @@ void calibrate_cpu()
     std::printf("cycles = %ld\n", max);
     std::printf("1 usec = %ld\n\n", cycles_per_usec);
 }
+
 #else
-#include<cstdio>
-#include<chrono>
+
+#include <cstdio>
+#include <chrono>
 
 void calibrate_cpu()
 {

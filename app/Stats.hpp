@@ -1,17 +1,18 @@
 #ifndef __STATS_HPP__
 #define __STATS_HPP__
 
-#include<iostream>
-#include<chrono>
-#include<time.h>
-#include<condition_variable>
-#include<mutex>
-#include<assert.h>
+#include "Msg.hpp"
+#include "Skeleton.hpp"
+#include "Proxy.hpp"
+#include "PeriodicThread.hpp"
 
-#include"Msg.hpp"
-#include"Skeleton.hpp"
-#include"Proxy.hpp"
-#include"PeriodicThread.hpp"
+#include <iostream>
+#include <chrono>
+#include <time.h>
+#include <condition_variable>
+#include <mutex>
+#include <assert.h>
+
 
 struct Stats {
     int last_processed_msg = -1;

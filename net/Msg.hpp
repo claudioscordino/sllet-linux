@@ -1,7 +1,6 @@
 #ifndef __MSG_HPP__
 #define __MSG_HPP__
 
-#include <iostream> // FIXME
 #include <chrono>
 #include <time.h>
 #include <timespec_support.h>
@@ -13,9 +12,6 @@ public:
 #if defined(SLLET) || defined(SLLET_TS)
     inline timespec GetLetTime() {
         return let_time_;
-    }
-    inline void SetLetTime() {
-        clock_gettime(CLOCK_MONOTONIC, &let_time_);
     }
     inline void SetLetTime(timespec time) {
         let_time_ = time;

@@ -1,7 +1,7 @@
-#include<iostream>
-#include<functional>
-#include<chrono>
-#include<thread>
+#include <iostream>
+#include <functional>
+#include <chrono>
+#include <thread>
 
 // https://stackoverflow.com/questions/48967706/how-to-pass-stdfunction-with-different-parameters-to-same-function
 // https://stackoverflow.com/questions/16868129/how-to-store-variadic-template-arguments

@@ -1,16 +1,16 @@
 #ifndef __PERIODIC_THREAD_HPP__
 #define __PERIODIC_THREAD_HPP__
 
-#include<thread>
-#include<cstdio>
-#include<functional>
-#include<unistd.h>
-#include<stdexcept>
-#include<time.h>
-#include<atomic>
-#include<iostream>
-#include<mutex>
-#include<pthread.h>
+#include <thread>
+#include <cstdio>
+#include <functional>
+#include <unistd.h>
+#include <stdexcept>
+#include <time.h>
+#include <atomic>
+#include <iostream>
+#include <mutex>
+#include <pthread.h>
 
 
 class PeriodicThread 
@@ -28,16 +28,16 @@ public:
                     lock_.lock();
                     act_curr_ = act_next_;
                     timespecadd(&act_next_, &period, &act_next_);
-                    timespec sleep_time = act_next_; // Used to release the lock
+                    timespec sleep_until = act_next_; // Used to release the lock
                     lock_.unlock();
 
                     timespec now;
                     clock_gettime(CLOCK_MONOTONIC, &now);
-                    if (timespeccmp(&now, &sleep_time, >))
+                    if (timespeccmp(&now, &sleep_until, >))
                         deadline_miss_++;
 
                     f_(this, arg); // Periodic code
-                    clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &sleep_time, NULL);
+                    clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &sleep_until, NULL);
                 }
         });
     }

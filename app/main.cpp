@@ -1,26 +1,26 @@
 #define VERSION_C
-#include"rt_utils.hpp"
+#include "rt_utils.hpp"
 
-#include"Msg.hpp"
-#include"Stats.hpp"
-#include"Proxy.hpp"
-#include"PeriodicThread.hpp"
-#include"Skeleton.hpp"
-#include"timespec_support.h"
-#include"log.hpp"
+#include "Msg.hpp"
+#include "Stats.hpp"
+#include "Proxy.hpp"
+#include "PeriodicThread.hpp"
+#include "Skeleton.hpp"
+#include "timespec_support.h"
+#include "log.hpp"
 
-#include<thread>
-#include<chrono>
-#include<iostream>
-#include<cstdio>
-#include<cstdlib> // rand
-#include<unistd.h>
-#include<atomic>
-#include<string>
-#include<sched.h>
-#include<sys/time.h>
-#include<sys/resource.h>
-#include<assert.h>
+#include <thread>
+#include <chrono>
+#include <iostream>
+#include <cstdio>
+#include <cstdlib> // rand
+#include <unistd.h>
+#include <atomic>
+#include <string>
+#include <sched.h>
+#include <sys/time.h>
+#include <sys/resource.h>
+#include <assert.h>
 
 
 timespec interconnect_task = {0, 20000000};
@@ -50,22 +50,27 @@ inline void processing()
 void prepare_send_message(Stats* c)
 {
     static std::atomic<int> counter = 1;
+    c->send_msg.SetStatsTime(c->send_th->getCurrActivationTime());
+    c->send_msg.data = counter++;
     
 #if 1 // Extra checks
     timespec now, curr, next, check;
     curr = c->send_th->getCurrActivationTime();
     next = c->send_th->getNextActivationTime();
+
+    // Check nextAct > currAct
     assert (timespeccmp(&curr, &next, <));
 
+    // Check now > currAct
     clock_gettime(CLOCK_MONOTONIC, &now);
     assert (timespeccmp(&now, &curr, >));
 
+    // Check nextAct = currAct + period
     timespecsub(&next, &curr, &check);
     assert(check.tv_sec == 0);
     assert(check.tv_nsec == ((long int) send_period_usec)*1000);
 #endif
 
-    c->send_msg.SetStatsTime(c->send_th->getCurrActivationTime());
 #ifdef SLLET
     c->send_msg.SetLetTime(c->send_th->getNextActivationTime());
     c->send_msg.AddLetTime(interconnect_task);
@@ -83,7 +88,6 @@ void prepare_send_message(Stats* c)
     LOG("[SEND] STATS time set to " << c->send_msg.GetStatsTime().tv_sec << "." << 
             c->send_msg.GetStatsTime().tv_nsec);
     LOG("[SEND] Sending message with data " << counter);
-    c->send_msg.data = counter++;
 }
 
 
