@@ -132,14 +132,13 @@ void do_send(PeriodicThread *th, void* arg)
 }
 
 // Sender is periodic and sends the message
-void* sender (void* arg)
+inline void start_sender (Stats* c)
 {
     try {
-        Stats *c = (Stats*) arg;
 #ifdef SLLET
-        pthread_create(&(c->send_exec_tid), NULL, send_processing, arg);
+        pthread_create(&(c->send_exec_tid), NULL, send_processing, c);
 #endif
-        c->send_th = new PeriodicThread(send_period_usec, do_send, arg);
+        c->send_th = new PeriodicThread(send_period_usec, do_send, c);
 #ifdef SLLET
         // In case of SL-LET, the sending thread is high priority
         if (!c->send_th->set_rt_prio(90))
@@ -148,7 +147,6 @@ void* sender (void* arg)
     } catch (const std::exception &e) {
         std::cerr << "Exception: " << e.what() << std::endl;
     }
-    return nullptr;
 }
 
 ///////////////// Receiver
@@ -204,14 +202,13 @@ void do_receive (PeriodicThread *th, void* arg)
 }
 
 // Receiver is event-triggered and measures the delay
-void * receiver (void* arg)
+inline void start_receiver (Stats* c)
 {
     try {
-        Stats *c = (Stats*) arg;
 #ifdef SLLET
-        pthread_create(&(c->recv_exec_tid), NULL, recv_processing, arg);
+        pthread_create(&(c->recv_exec_tid), NULL, recv_processing, c);
 #endif
-        c->recv_th = new PeriodicThread(recv_period_usec, do_receive, arg);
+        c->recv_th = new PeriodicThread(recv_period_usec, do_receive, c);
 #ifdef SLLET
         // In case of SL-LET, the receiving thread is high priority
         if (!c->recv_th->set_rt_prio(90))
@@ -220,7 +217,6 @@ void * receiver (void* arg)
     } catch (const std::exception &e) {
         std::cerr << "Exception: " << e.what() << std::endl;
     }
-    return nullptr;
 }
 
 int main (int argc, char* argv[])
@@ -271,15 +267,12 @@ int main (int argc, char* argv[])
             pairs[i].skel = new Skeleton<int> ("127.0.0.1", port+i);
         }
 
-        // Receivers
+        // Senders and receivers
         for (int i=0; i < pairs_nb; ++i) {
-            receiver(&pairs[i]);
+            start_receiver(&pairs[i]);
+            start_sender(&pairs[i]);
         }
         
-        // Senders
-        for (int i=0; i < pairs_nb; ++i) {
-            sender(&pairs[i]);
-        }
         while(!stop)
             sleep(3);
         getrusage(RUSAGE_SELF, &ru2);
