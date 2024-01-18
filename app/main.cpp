@@ -290,6 +290,8 @@ int main (int argc, char* argv[])
         uint64_t sent_messages = 0;
         uint64_t send_deadline_miss = 0;
         uint64_t recv_deadline_miss = 0;
+        uint64_t sum_jitter = 0;
+        uint64_t worst_jitter = 0;
 
         for (int i=0; i < pairs_nb; ++i) {
             if (pairs[i].worst_case_delay > worst)
@@ -302,6 +304,10 @@ int main (int argc, char* argv[])
             } else {
                 std::cerr << "ERROR: received messages = 0" << std::endl;    
             }
+            uint64_t jitter = (pairs[i].worst_case_delay - pairs[i].best_case_delay)/2;
+            sum_jitter += jitter;
+            if (jitter > worst_jitter)
+                worst_jitter = jitter;
             received_messages += pairs[i].received_messages;
             sent_messages += pairs[i].sent_messages;
             send_deadline_miss += pairs[i].send_th->getDeadlineMiss();
@@ -322,7 +328,8 @@ int main (int argc, char* argv[])
         std::cout << "Avg delay = " << sum_avg/pairs_nb << " usec" << std::endl;
         std::cout << "Worst delay = " << worst << " usec" << std::endl;
         std::cout << "Best delay = " << best << " usec" << std::endl;
-        std::cout << "Max jitter = " << (worst-best)/2 << " usec" << std::endl;
+        std::cout << "Avg jitter = " << sum_jitter/pairs_nb << " usec" << std::endl;
+        std::cout << "Worst jitter = " << worst_jitter << " usec" << std::endl;
         std::cout << "User usage = " << 
             (ru2.ru_utime.tv_sec - ru1.ru_utime.tv_sec) << "." <<
             (ru2.ru_utime.tv_usec - ru1.ru_utime.tv_usec) << " usec" << std::endl;
