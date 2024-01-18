@@ -1,12 +1,22 @@
 #ifndef __LOG_HPP__
 #define __LOG_HPP__
 
-#include <iostream>
-
+// Comment to disable logging
 // #define LOG_ENABLED
 
 #ifdef LOG_ENABLED
-#define LOG(msg) std::cout << msg << std::endl;
+
+#include <iostream>
+#include <iostream>
+#include <string>
+#include <sstream>
+
+
+#define LOG(msg) { \
+    std::ostringstream ss; \
+    ss << msg << std::endl; \
+    std::cout << ss.str(); \
+    }
 #else
 #define LOG(msg) 
 #endif
