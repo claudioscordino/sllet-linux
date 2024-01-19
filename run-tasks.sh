@@ -10,8 +10,9 @@ echo performance > /sys/devices/system/cpu/cpufreq/policy0/scaling_governor
 echo performance > /sys/devices/system/cpu/cpufreq/policy1/scaling_governor
 echo performance > /sys/devices/system/cpu/cpufreq/policy2/scaling_governor
 echo performance > /sys/devices/system/cpu/cpufreq/policy3/scaling_governor
+sleep 1
 ## ./main-tasks  pairs  send_period_usec  recv_period_usec  max_exec_time_usec  interconnect_task_usec  duration_sec
-./main-tasks 4 10000 10000 5000 20000 30 
+./main-tasks 4 10000 10000 5000 1000 30 
 echo powersave   > /sys/devices/system/cpu/cpufreq/policy0/scaling_governor
 echo powersave   > /sys/devices/system/cpu/cpufreq/policy1/scaling_governor
 echo powersave   > /sys/devices/system/cpu/cpufreq/policy2/scaling_governor
