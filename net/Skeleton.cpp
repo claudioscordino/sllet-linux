@@ -48,7 +48,6 @@ bool Skeleton<T>::Send(Msg<T> msg)
             break;
         } else if (ret < 0) {
             throw std::runtime_error ("Write error");
-            return false; 
         }
         remaining -= ret;
     }
