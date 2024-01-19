@@ -41,7 +41,7 @@ public:
         node->next = nullptr;
         node->prev = nullptr;
 
-        std::lock_guard<std::mutex> lock(mutex_);
+        std::lock_guard lock(mutex_);
         if (tail_ == nullptr) {
             // Empty list
             tail_ = node;
@@ -67,7 +67,7 @@ public:
         }
     }
     bool CheckFirst(T* out) {
-        std::lock_guard<std::mutex> lock(mutex_);
+        std::lock_guard lock(mutex_);
         if (head_ == nullptr)
             return false;
         *out = head_->sort;
@@ -76,7 +76,7 @@ public:
 
     D* Extract(){
         D* ret = nullptr;
-        std::lock_guard<std::mutex> lock(mutex_);
+        std::lock_guard lock(mutex_);
         if (head_ != nullptr) {
             Node* remove = head_;
             ret = remove->data;
@@ -92,7 +92,7 @@ public:
         
     void Print() {
         std::cout << "=============" << std::endl;
-        std::lock_guard<std::mutex> lock(mutex_);
+        std::lock_guard lock(mutex_);
         Node* n = head_;
         if (n == nullptr)
             std::cout << "Empty list!" << std::endl;

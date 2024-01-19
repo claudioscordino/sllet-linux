@@ -25,11 +25,13 @@ public:
 
                 while(!stop_) {
 
-                    lock_.lock();
-                    act_curr_ = act_next_;
-                    timespecadd(&act_next_, &period, &act_next_);
-                    timespec sleep_until = act_next_; // Used to release the lock
-                    lock_.unlock();
+                    timespec sleep_until;
+                    {
+                        std::lock_guard lock(lock_);
+                        act_curr_ = act_next_;
+                        timespecadd(&act_next_, &period, &act_next_);
+                        sleep_until = act_next_; // Used to release the lock
+                    }
 
                     timespec now;
                     clock_gettime(CLOCK_MONOTONIC, &now);
@@ -56,9 +58,8 @@ public:
 
     inline timespec getNextActivationTime() {
         timespec ret;
-        lock_.lock();
+        std::lock_guard lock(lock_);
         ret = act_next_;
-        lock_.unlock();
         return ret;
     }
 
@@ -68,9 +69,8 @@ public:
 
     inline timespec getCurrActivationTime() {
         timespec ret;
-        lock_.lock();
+        std::lock_guard lock(lock_);
         ret = act_curr_;
-        lock_.unlock();
         return ret;
     }
 
