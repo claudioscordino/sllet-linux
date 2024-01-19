@@ -183,8 +183,7 @@ void do_receive (PeriodicThread *th, void* arg)
             c->recv_th->getCurrActivationTime().tv_sec << "." << 
             c->recv_th->getCurrActivationTime().tv_nsec);
 #ifdef SLLET
-    clock_gettime(CLOCK_MONOTONIC, &now);
-    c->recv_msg = proxy->GetNewSamples(now);
+    c->recv_msg = proxy->GetNewSamples(c->recv_th->getCurrActivationTime());
     update_stats(c);
     // Execute some stuff at lower priority
     c->recv_exec_cond.notify_one();
