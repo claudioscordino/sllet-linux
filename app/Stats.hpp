@@ -17,8 +17,8 @@
 
 struct Stats {
     int last_processed_msg = -1;
-    Skeleton<int>* skel;
-    Proxy<int>* proxy;
+    std::unique_ptr<Skeleton<int>> skel;
+    std::unique_ptr<Proxy<int>> proxy;
     uint64_t worst_case_delay = 0;
     uint64_t best_case_delay = 1000000000;
     uint64_t sum_delay = 0;

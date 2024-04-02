@@ -109,7 +109,6 @@ bool do_send(PeriodicThread *th, void* arg)
     if (stop)
         return false;
     Stats *c = (Stats*) arg;
-    Skeleton<int> *skel = c->skel;
 #ifdef SLLET
     // Send previous message (except for first round)
     if (c->send_msg.data != 0) {
@@ -117,7 +116,7 @@ bool do_send(PeriodicThread *th, void* arg)
         clock_gettime(CLOCK_MONOTONIC, &now);
         c->send_msg.SetLetTime(now);
         c->send_msg.AddLetTime(interconnect_task);
-        skel->Send(c->send_msg);
+        c->skel->Send(c->send_msg);
         (c->sent_messages)++;
     }
     // Execute some stuff at lower priority
@@ -127,7 +126,7 @@ bool do_send(PeriodicThread *th, void* arg)
     processing();
     prepare_send_message(c);
 
-    skel->Send(c->send_msg);
+    c->skel->Send(c->send_msg);
     (c->sent_messages)++;
 #endif
     return true;
@@ -179,22 +178,21 @@ bool do_receive (PeriodicThread *th, void* arg)
     if (stop)
         return false;
     Stats *c = (Stats*) arg;
-    Proxy<int> * proxy = c->proxy;
     c->recv_activations++;
     LOG("Current activation time is " << 
             c->recv_th->getCurrActivationTime().tv_sec << "." << 
             c->recv_th->getCurrActivationTime().tv_nsec);
 #ifdef SLLET
-    c->recv_msg = proxy->GetNewSamples(c->recv_th->getCurrActivationTime());
+    c->recv_msg = c->proxy->GetNewSamples(c->recv_th->getCurrActivationTime());
     update_stats(c);
     // Execute some stuff at lower priority
     c->recv_exec_cond.notify_one();
 #elif SLLET_TS
-    c->recv_msg = proxy->GetNewSamples(c->recv_th->getCurrActivationTime());
+    c->recv_msg = c->proxy->GetNewSamples(c->recv_th->getCurrActivationTime());
     update_stats(c);
     processing();
 #else
-    c->recv_msg = proxy->GetNewSamples();
+    c->recv_msg = c->proxy->GetNewSamples();
     update_stats(c);
     processing();
 #endif
@@ -265,10 +263,10 @@ int main (int argc, char* argv[])
         
         
         for (int i=0; i < pairs_nb; ++i) {
-            pairs[i].proxy = new Proxy<int> (port+i);
+            pairs[i].proxy = std::make_unique<Proxy<int>> (port+i);
         }
         for (int i=0; i < pairs_nb; ++i) {
-            pairs[i].skel = new Skeleton<int> ("127.0.0.1", port+i);
+            pairs[i].skel = std::make_unique<Skeleton<int>> ("127.0.0.1", port+i);
         }
 
         // Senders and receivers
@@ -280,12 +278,6 @@ int main (int argc, char* argv[])
         while(!stop)
             sleep(3);
         getrusage(RUSAGE_SELF, &ru2);
-
-
-        for (int i=0; i < pairs_nb; ++i) {
-            delete pairs[i].skel;
-            delete pairs[i].proxy;
-        }
 
         uint64_t worst = 0;
         uint64_t best = 1000000000;
