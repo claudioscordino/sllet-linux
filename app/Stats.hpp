@@ -11,6 +11,7 @@
 #include <time.h>
 #include <condition_variable>
 #include <mutex>
+#include <memory>
 #include <assert.h>
 
 
@@ -25,8 +26,8 @@ struct Stats {
     uint64_t recv_activations = 0;
     uint64_t sent_messages = 0;
 
-    PeriodicThread* send_th;
-    PeriodicThread* recv_th;
+    std::unique_ptr<PeriodicThread> send_th;
+    std::unique_ptr<PeriodicThread> recv_th;
 
 #ifdef SLLET
     std::condition_variable recv_exec_cond;

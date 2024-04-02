@@ -138,7 +138,7 @@ inline void start_sender (Stats* c)
 #ifdef SLLET
         pthread_create(&(c->send_exec_tid), NULL, send_processing, c);
 #endif
-        c->send_th = new PeriodicThread(send_period_usec, do_send, c);
+        c->send_th = std::make_unique<PeriodicThread>(send_period_usec, do_send, c);
 #ifdef SLLET
         // In case of SL-LET, the sending thread is high priority
         if (!c->send_th->set_rt_prio(90))
@@ -207,7 +207,7 @@ inline void start_receiver (Stats* c)
 #ifdef SLLET
         pthread_create(&(c->recv_exec_tid), NULL, recv_processing, c);
 #endif
-        c->recv_th = new PeriodicThread(recv_period_usec, do_receive, c);
+        c->recv_th = std::make_unique<PeriodicThread>(recv_period_usec, do_receive, c);
 #ifdef SLLET
         // In case of SL-LET, the receiving thread is high priority
         if (!c->recv_th->set_rt_prio(90))
