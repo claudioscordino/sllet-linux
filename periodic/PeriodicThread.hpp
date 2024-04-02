@@ -17,7 +17,7 @@ class PeriodicThread
 {
 public:
     explicit PeriodicThread(uint64_t period_usec,
-            std::function<void(PeriodicThread*, void*)> f,
+            std::function<bool(PeriodicThread*, void*)> f,
             void* arg): f_(f) {
         t_ = std::make_unique<std::thread>([=](){
                 clock_gettime(CLOCK_MONOTONIC, &act_next_);
@@ -38,7 +38,8 @@ public:
                     if (timespeccmp(&now, &sleep_until, >))
                         deadline_miss_++;
 
-                    f_(this, arg); // Periodic code
+                    if (!f_(this, arg)) // Periodic code
+                        break; 
                     clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &sleep_until, NULL);
                 }
         });
@@ -90,7 +91,7 @@ public:
     }
     
 private:
-    std::function<void(PeriodicThread*, void* arg)> f_;
+    std::function<bool(PeriodicThread*, void* arg)> f_;
     std::unique_ptr<std::thread> t_;
     std::atomic<bool> stop_ = false;
     std::atomic<uint64_t> deadline_miss_ = 0;

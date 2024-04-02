@@ -37,7 +37,7 @@ static const uint16_t port = 1236;
 
 std::atomic<bool> stop = false;
 
-Stats *pairs = nullptr;
+std::unique_ptr<Stats[]> pairs;
 
 inline void processing()
 {
@@ -103,10 +103,11 @@ void* send_processing(void* arg)
 }
 #endif
 
-void do_send(PeriodicThread *th, void* arg)
+bool do_send(PeriodicThread *th, void* arg)
 {
+    (void) th;
     if (stop)
-        th->stop();
+        return false;
     Stats *c = (Stats*) arg;
     Skeleton<int> *skel = c->skel;
 #ifdef SLLET
@@ -129,6 +130,7 @@ void do_send(PeriodicThread *th, void* arg)
     skel->Send(c->send_msg);
     (c->sent_messages)++;
 #endif
+    return true;
 }
 
 // Sender is periodic and sends the message
@@ -164,7 +166,7 @@ void* recv_processing(void* arg)
 }
 #endif
 
-void do_receive (PeriodicThread *th, void* arg)
+bool do_receive (PeriodicThread *th, void* arg)
 {
     timespec now;
 #if 1 // Extra checks
@@ -175,7 +177,7 @@ void do_receive (PeriodicThread *th, void* arg)
 #endif
 
     if (stop)
-        th->stop();
+        return false;
     Stats *c = (Stats*) arg;
     Proxy<int> * proxy = c->proxy;
     c->recv_activations++;
@@ -196,8 +198,11 @@ void do_receive (PeriodicThread *th, void* arg)
     update_stats(c);
     processing();
 #endif
-    if (c->recv_activations == recv_activations)
+    if (c->recv_activations == recv_activations){
         stop = true;
+        return false;
+    }
+    return true;
 }
 
 // Receiver is event-triggered and measures the delay
@@ -253,7 +258,7 @@ int main (int argc, char* argv[])
         std::cout << "Duration = " << duration_sec << std::endl;
         std::cout << "Receiver activations = " << recv_activations << std::endl;
 
-        pairs = new Stats[pairs_nb];
+        pairs = std::make_unique<Stats[]>(pairs_nb);
 
         struct rusage ru1, ru2;
         getrusage(RUSAGE_SELF, &ru1);
@@ -345,7 +350,6 @@ int main (int argc, char* argv[])
         std::cout << "AAAAAAAAAAAAAAAAAAA" << std::endl;
         std::cout << std::flush;
 
-        delete pairs;
     } catch (const std::exception &e) {
         std::cerr << "Exception: " << e.what() << std::endl;
     }
