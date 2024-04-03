@@ -25,9 +25,7 @@ public:
     Sdll() : head_(nullptr), tail_(nullptr) {}
     ~Sdll() {
         while (head_ != nullptr) {
-            Node* d = head_;
             head_ = head_->next;
-            delete d;
         }
     }
     // Returns true if T1 < T2
@@ -36,7 +34,7 @@ public:
 //     }
 
     void Insert(T sort, std::unique_ptr<D> data) {
-        Node* node = new Node;
+        std::shared_ptr<Node> node = std::make_shared<Node>();
         node->sort = sort;
         node->data = std::move(data);
         node->next = nullptr;
@@ -49,7 +47,7 @@ public:
             head_ = node;
         } else {
             // There is at least one node
-            Node* n = tail_;
+            std::shared_ptr<Node> n = tail_;
             while ((n != nullptr) && !Compare(&(n->sort), &sort))
                 n = n->prev;
 
@@ -78,14 +76,12 @@ public:
     std::unique_ptr<D> Extract(){
         std::lock_guard lock(mutex_);
         if (head_ != nullptr) {
-            Node* remove = head_;
-            std::unique_ptr<D> ret = std::move(remove->data);
+            std::unique_ptr<D> ret = std::move(head_->data);
             head_ = head_->next;
             if (head_ == nullptr)
                 tail_ = nullptr;
             else
                 head_->prev = nullptr;
-            delete remove;
             return ret;
         }
         return nullptr;
@@ -108,11 +104,11 @@ private:
     struct Node {
         T sort;
         std::unique_ptr<D> data;
-        Node* next;
-        Node* prev;
+        std::shared_ptr<Node> next;
+        std::shared_ptr<Node> prev;
     };    
-    Node* head_;
-    Node* tail_;
+    std::shared_ptr<Node> head_;
+    std::shared_ptr<Node> tail_;
     std::mutex mutex_;
 };
 

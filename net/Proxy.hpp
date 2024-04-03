@@ -39,8 +39,6 @@ public:
 
     ~Proxy(){
         close(fd_);
-        // No need to delete elements in queue_ because
-        // they are deleted by Sdl's dtor.
     }
 
 #if defined(SLLET) || defined (SLLET_TS)
