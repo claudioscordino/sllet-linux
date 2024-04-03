@@ -3,6 +3,7 @@
 
 #include <iostream> // FIXME
 #include <mutex>
+#include <memory>
 
 // This is a sorted doubly linked list.
 // It assumes that insertion at the tail is more likely. Therefore, insertion starts at
@@ -34,10 +35,10 @@ public:
 //         return ((*t1) < (*t2)); 
 //     }
 
-    void Insert(T sort, D* data) {
+    void Insert(T sort, std::unique_ptr<D> data) {
         Node* node = new Node;
         node->sort = sort;
-        node->data = data;
+        node->data = std::move(data);
         node->next = nullptr;
         node->prev = nullptr;
 
@@ -74,20 +75,20 @@ public:
         return true;
     }
 
-    D* Extract(){
-        D* ret = nullptr;
+    std::unique_ptr<D> Extract(){
         std::lock_guard lock(mutex_);
         if (head_ != nullptr) {
             Node* remove = head_;
-            ret = remove->data;
+            std::unique_ptr<D> ret = std::move(remove->data);
             head_ = head_->next;
             if (head_ == nullptr)
                 tail_ = nullptr;
             else
                 head_->prev = nullptr;
             delete remove;
+            return ret;
         }
-        return ret;
+        return nullptr;
     }
         
     void Print() {
@@ -106,7 +107,7 @@ public:
 private:
     struct Node {
         T sort;
-        D* data;
+        std::unique_ptr<D> data;
         Node* next;
         Node* prev;
     };    

@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <unistd.h>
 #include <functional>
+#include <memory>
 
 // Proxy:: Subscriber
 
@@ -56,9 +57,9 @@ public:
                 LOG("[RCV] Enqueuing message...");
     
                 // Enqueue all messages
-                Msg<T>* msg = new Msg<T>;
+                std::unique_ptr<Msg<T>> msg = std::make_unique<Msg<T>>();
                 *msg = tmp;
-                queue_.Insert(msg->GetLetTime(), msg);
+                queue_.Insert(tmp.GetLetTime(), std::move(msg));
         }
 
         // Dequeue
@@ -78,9 +79,8 @@ public:
             } else {
                 LOG("[RCV] Accepting message");
             }
-            Msg<T>* m = queue_.Extract();
+            std::unique_ptr<Msg<T>> m = queue_.Extract();
             last_ = *m;
-            delete m;
         }
 
         return last_;
