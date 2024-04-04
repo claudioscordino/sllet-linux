@@ -37,8 +37,6 @@ static const uint16_t port = 1236;
 
 std::atomic<bool> stop = false;
 
-std::unique_ptr<Stats[]> pairs;
-
 inline void processing()
 {
     int r = rand()%max_exec_time_usec;
@@ -267,18 +265,16 @@ int main (int argc, char* argv[])
         std::cout << "Duration = " << duration_sec << std::endl;
         std::cout << "Receiver activations = " << recv_activations << std::endl;
 
-        pairs = std::make_unique<Stats[]>(pairs_nb);
+        std::vector<Stats> pairs (pairs_nb);
 
         struct rusage ru1, ru2;
         getrusage(RUSAGE_SELF, &ru1);
         
         
-        for (int i=0; i < pairs_nb; ++i) {
+        for (int i=0; i < pairs_nb; ++i)
             pairs[i].proxy = std::make_unique<Proxy<int>> (port+i);
-        }
-        for (int i=0; i < pairs_nb; ++i) {
+        for (int i=0; i < pairs_nb; ++i)
             pairs[i].skel = std::make_unique<Skeleton<int>> ("127.0.0.1", port+i);
-        }
 
         // Senders and receivers
         for (int i=0; i < pairs_nb; ++i) {
