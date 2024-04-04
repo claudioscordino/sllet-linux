@@ -22,7 +22,6 @@
 template <class T, class D>
 class Sdll {
 public:
-    Sdll() : head_(nullptr), tail_(nullptr) {}
     ~Sdll() {
         while (head_ != nullptr) {
             head_ = head_->next;
@@ -107,8 +106,8 @@ private:
         std::shared_ptr<Node> next;
         std::shared_ptr<Node> prev;
     };    
-    std::shared_ptr<Node> head_;
-    std::shared_ptr<Node> tail_;
+    std::shared_ptr<Node> head_ = nullptr;
+    std::shared_ptr<Node> tail_ = nullptr;
     std::mutex mutex_;
 };
 
