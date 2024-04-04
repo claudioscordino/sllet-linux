@@ -96,8 +96,10 @@ void* send_processing(void* arg)
     while (!stop) {
         std::unique_lock lock(c->send_exec_lock);
         c->send_exec_cond.wait(lock);
-        processing();
-        prepare_send_message(c);
+        if (!stop) {
+            processing();
+            prepare_send_message(c);
+        }
     }
     return nullptr;
 }
@@ -106,9 +108,13 @@ void* send_processing(void* arg)
 bool do_send(PeriodicThread *th, void* arg)
 {
     (void) th;
-    if (stop)
-        return false;
     Stats *c = (Stats*) arg;
+    if (stop) {
+#ifdef SLLET
+        c->send_exec_cond.notify_one();
+#endif
+        return false;
+    }
 #ifdef SLLET
     // Send previous message (except for first round)
     if (c->send_msg.data != 0) {
@@ -159,7 +165,8 @@ void* recv_processing(void* arg)
     while (!stop) {
         std::unique_lock lock(c->recv_exec_lock);
         c->recv_exec_cond.wait(lock);
-        processing();
+        if (!stop)
+            processing();
     }
     return nullptr;
 }
@@ -175,9 +182,13 @@ bool do_receive (PeriodicThread *th, void* arg)
     assert (timespeccmp(&now, &curr, >));
 #endif
 
-    if (stop)
-        return false;
     Stats *c = (Stats*) arg;
+    if (stop) {
+#ifdef SLLET
+        c->recv_exec_cond.notify_one();
+#endif
+        return false;
+    }
     c->recv_activations++;
     LOG("Current activation time is " << 
             c->recv_th->getCurrActivationTime().tv_sec << "." << 
